@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:h="clr-namespace:Controllarr.App.Helpers">
 
     <DataTemplate x:Key="CategoriesViewTemplate">
         <Grid>
@@ -44,7 +45,8 @@
                 <StackPanel MaxWidth="560">
 
                     <!-- Show editor only when a category is selected -->
-                    <StackPanel DataContext="{Binding SelectedCategory}">
+                    <StackPanel DataContext="{Binding SelectedCategory}"
+                                h:DirtyTracker.Command="{Binding DataContext.MarkCategoriesModifiedCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
 
                         <TextBlock Text="Category Details" Style="{StaticResource HeaderText}"
                                    Margin="0,0,0,20"/>
@@ -113,6 +115,10 @@
                         <StackPanel Orientation="Horizontal">
                             <Button Style="{StaticResource AccentButton}"
                                     Content="Save Category"
+                                    Command="{Binding DataContext.SaveCategoriesCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+                                    Margin="0,0,12,0"/>
+                            <Button Content="Revert"
+                                    Command="{Binding DataContext.RevertCategoriesCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
                                     Margin="0,0,12,0"/>
                             <Button Style="{StaticResource DangerButton}"
                                     Content="Delete Category"/>

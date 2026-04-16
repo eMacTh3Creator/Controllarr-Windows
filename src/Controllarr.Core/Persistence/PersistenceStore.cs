@@ -239,6 +239,23 @@ namespace Controllarr.Core.Persistence
             ScheduleSave();
         }
 
+        public void ReplaceCategories(List<Category> newCategories)
+        {
+            if (newCategories is null) throw new ArgumentNullException(nameof(newCategories));
+
+            _semaphore.Wait();
+            try
+            {
+                _state.Categories = newCategories;
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+
+            ScheduleSave();
+        }
+
         // ────────────────────────────────────────────────────────────
         // Category-by-hash map
         // ────────────────────────────────────────────────────────────

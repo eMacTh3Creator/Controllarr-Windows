@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:vm="clr-namespace:Controllarr.App.ViewModels"
-                    xmlns:persistence="clr-namespace:Controllarr.Core.Persistence;assembly=Controllarr.Core">
+                    xmlns:persistence="clr-namespace:Controllarr.Core.Persistence;assembly=Controllarr.Core"
+                    xmlns:h="clr-namespace:Controllarr.App.Helpers">
 
     <DataTemplate x:Key="SettingsViewTemplate">
         <DockPanel>
@@ -25,7 +26,8 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Padding="24,20">
-                <StackPanel MaxWidth="720">
+                <StackPanel MaxWidth="720"
+                            h:DirtyTracker.Command="{Binding MarkSettingsModifiedCommand}">
 
                     <TextBlock Text="Settings" Style="{StaticResource HeaderText}"
                                Margin="0,0,0,20"/>

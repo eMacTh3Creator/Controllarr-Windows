@@ -58,8 +58,9 @@ namespace Controllarr.App.ViewModels
         private Logger _logger = Logger.Instance;
         private CancellationTokenSource? _pollCts;
 
-        // ── Settings editing ───────────────────────────────────────
+        // ── Dirty-tracking for editable state ─────────────────────
         private bool _settingsUserModified;
+        private bool _categoriesUserModified;
 
         // ════════════════════════════════════════════════════════════
         // Observable properties
@@ -398,6 +399,7 @@ namespace Controllarr.App.ViewModels
                     string json = File.ReadAllText(dialog.FileName);
                     _store.ImportBackup(json);
                     _settingsUserModified = false;
+                    _categoriesUserModified = false;
                     _logger.Info("UI", $"Backup imported from {dialog.FileName}");
                     MessageBox.Show("Backup imported successfully. Settings have been updated.",
                         "Controllarr", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -415,6 +417,32 @@ namespace Controllarr.App.ViewModels
         private void MarkSettingsModified()
         {
             _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void MarkCategoriesModified()
+        {
+            _categoriesUserModified = true;
+        }
+
+        [RelayCommand]
+        private void SaveCategories()
+        {
+            if (_store == null) return;
+
+            _store.ReplaceCategories(Categories.ToList());
+            _categoriesUserModified = false;
+            _logger.Info("UI", "Categories saved");
+        }
+
+        [RelayCommand]
+        private void RevertCategories()
+        {
+            if (_store == null) return;
+
+            Categories = new ObservableCollection<Category>(_store.GetCategories());
+            _categoriesUserModified = false;
+            _logger.Info("UI", "Categories reverted");
         }
 
         // ════════════════════════════════════════════════════════════
@@ -626,8 +654,9 @@ namespace Controllarr.App.ViewModels
                 OnPropertyChanged(nameof(DownloadSpeedFormatted));
                 OnPropertyChanged(nameof(UploadSpeedFormatted));
 
-                // Categories
-                Categories = new ObservableCollection<Category>(categories);
+                // Categories (only refresh if user hasn't modified)
+                if (!_categoriesUserModified)
+                    Categories = new ObservableCollection<Category>(categories);
 
                 // Settings (only refresh if user hasn't modified)
                 if (!_settingsUserModified)
