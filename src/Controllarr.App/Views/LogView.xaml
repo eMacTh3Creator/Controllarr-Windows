@@ -1,0 +1,152 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <DataTemplate x:Key="LogViewTemplate">
+        <DockPanel>
+
+            <!-- ══ Filter bar ═════════════════════════════════════ -->
+            <Border DockPanel.Dock="Top"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Level filter -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="Level:" Style="{StaticResource SecondaryText}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox SelectedItem="{Binding LogFilterLevel}"
+                                  Width="100">
+                            <ComboBoxItem Content="All"/>
+                            <ComboBoxItem Content="Debug"/>
+                            <ComboBoxItem Content="Info"/>
+                            <ComboBoxItem Content="Warn"/>
+                            <ComboBoxItem Content="Error"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Search -->
+                    <TextBox Grid.Column="2"
+                             Style="{StaticResource SearchTextBox}"
+                             Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <!-- Entry count -->
+                    <TextBlock Grid.Column="4"
+                               Style="{StaticResource SecondaryText}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding LogEntries.Count, Mode=OneWay}"/>
+                        <Run Text="entries"/>
+                    </TextBlock>
+                </Grid>
+            </Border>
+
+            <!-- ══ Log entries ListView ═══════════════════════════ -->
+            <ListView ItemsSource="{Binding LogEntries}"
+                      Margin="0"
+                      VirtualizingStackPanel.IsVirtualizing="True"
+                      VirtualizingStackPanel.VirtualizationMode="Recycling">
+                <ListView.View>
+                    <GridView>
+                        <!-- Timestamp -->
+                        <GridViewColumn Header="Timestamp" Width="150">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.fff}'}"
+                                               FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Level -->
+                        <GridViewColumn Header="Level" Width="70">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="3" Padding="6,2"
+                                            HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Level}" Value="Error">
+                                                        <Setter Property="Background">
+                                                            <Setter.Value>
+                                                                <SolidColorBrush Color="#3B1C1C"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Level}" Value="Warn">
+                                                        <Setter Property="Background">
+                                                            <Setter.Value>
+                                                                <SolidColorBrush Color="#3B2D1C"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding Level}" FontSize="10" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Debug">
+                                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Info">
+                                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Warn">
+                                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Error">
+                                                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Source -->
+                        <GridViewColumn Header="Source" Width="120">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Source}"
+                                               FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource AccentLightBrush}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Message -->
+                        <GridViewColumn Header="Message" Width="600">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Message}"
+                                               FontSize="11"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Message}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </DockPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

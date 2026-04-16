@@ -1,0 +1,316 @@
+<Window x:Class="Controllarr.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Controllarr.App.ViewModels"
+        Title="Controllarr"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Views/TorrentsView.xaml"/>
+                <ResourceDictionary Source="Views/SettingsView.xaml"/>
+                <ResourceDictionary Source="Views/HealthView.xaml"/>
+                <ResourceDictionary Source="Views/CategoriesView.xaml"/>
+                <ResourceDictionary Source="Views/LogView.xaml"/>
+                <ResourceDictionary Source="Views/SimpleViews.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <!-- ── Boot overlay ─────────────────────────────────────── -->
+        <Grid x:Name="BootOverlay"
+              Panel.ZIndex="100"
+              Visibility="{Binding IsBooting, Converter={StaticResource BoolToVis}}">
+            <Border Background="{StaticResource BackgroundBrush}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Controllarr"
+                               Style="{StaticResource HeaderText}"
+                               HorizontalAlignment="Center"
+                               FontSize="32"
+                               Margin="0,0,0,16"/>
+                    <ProgressBar IsIndeterminate="True"
+                                 Width="240" Height="4"
+                                 Margin="0,0,0,12"/>
+                    <TextBlock Text="Starting engine..."
+                               Style="{StaticResource SecondaryText}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding BootError}"
+                               Foreground="{StaticResource ErrorBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,12,0,0"
+                               TextWrapping="Wrap"
+                               MaxWidth="400"
+                               Visibility="{Binding BootError, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ── Main layout ──────────────────────────────────────── -->
+        <DockPanel LastChildFill="True">
+
+            <!-- ══ Top status bar ══════════════════════════════════ -->
+            <Border DockPanel.Dock="Top"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Connection + Port -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Connection indicator -->
+                        <Ellipse Width="8" Height="8"
+                                 Fill="{StaticResource StatusGreenBrush}"
+                                 Margin="0,0,8,0"
+                                 VerticalAlignment="Center"/>
+                        <TextBlock Text="Port:"
+                                   Style="{StaticResource SecondaryText}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding SessionStats.ListenPort}"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFontFamily}"
+                                   FontSize="11"/>
+                    </StackPanel>
+
+                    <!-- Center: Speeds -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <!-- Download speed -->
+                        <TextBlock Text="&#x2193;" Foreground="{StaticResource SuccessBrush}"
+                                   FontSize="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding DownloadSpeedFormatted}"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFontFamily}"
+                                   FontSize="12"
+                                   Margin="0,0,20,0"/>
+                        <!-- Upload speed -->
+                        <TextBlock Text="&#x2191;" Foreground="{StaticResource AccentLightBrush}"
+                                   FontSize="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding UploadSpeedFormatted}"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFontFamily}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- Right: VPN + Disk indicators -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- VPN status pill -->
+                        <Border Style="{StaticResource StatusPill}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="6" Height="6"
+                                         VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource StatusRedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding VpnConnected}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding VpnStatusText}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Disk pressure indicator -->
+                        <Border Style="{StaticResource StatusPill}">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="6" Height="6"
+                                         VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DiskPressure}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource StatusYellowBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding DiskStatusText}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ══ Left sidebar navigation ═════════════════════════ -->
+            <Border DockPanel.Dock="Left"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Width="200"
+                    Padding="4,8">
+                <DockPanel LastChildFill="True">
+                    <!-- App title -->
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Controllarr"
+                               Style="{StaticResource HeaderText}"
+                               Margin="12,4,0,16"
+                               FontSize="18"/>
+
+                    <!-- Nav items -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         IsChecked="{Binding IsTabSelected_Torrents, Mode=TwoWay}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Torrents">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Torrents" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Categories">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Categories" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Settings">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <Separator Margin="8,8"/>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Health">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE95E;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Health" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Recovery">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Recovery" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="PostProcessor">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE115;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Post-Processor" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Seeding">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Seeding" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Arr">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="*arr" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <Separator Margin="8,8"/>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Log">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE9D5;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Log" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- ══ Content area ════════════════════════════════════ -->
+            <ContentControl Content="{Binding}"
+                            Margin="0">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{StaticResource TorrentsViewTemplate}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Torrents">
+                                <Setter Property="ContentTemplate" Value="{StaticResource TorrentsViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Categories">
+                                <Setter Property="ContentTemplate" Value="{StaticResource CategoriesViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Settings">
+                                <Setter Property="ContentTemplate" Value="{StaticResource SettingsViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Health">
+                                <Setter Property="ContentTemplate" Value="{StaticResource HealthViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Recovery">
+                                <Setter Property="ContentTemplate" Value="{StaticResource RecoveryViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="PostProcessor">
+                                <Setter Property="ContentTemplate" Value="{StaticResource PostProcessorViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Seeding">
+                                <Setter Property="ContentTemplate" Value="{StaticResource SeedingViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Arr">
+                                <Setter Property="ContentTemplate" Value="{StaticResource ArrViewTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Log">
+                                <Setter Property="ContentTemplate" Value="{StaticResource LogViewTemplate}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </DockPanel>
+    </Grid>
+</Window>

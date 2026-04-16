@@ -1,0 +1,353 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Controllarr.App.ViewModels"
+                    xmlns:persistence="clr-namespace:Controllarr.Core.Persistence;assembly=Controllarr.Core">
+
+    <DataTemplate x:Key="SettingsViewTemplate">
+        <DockPanel>
+            <!-- ══ Bottom action bar ══════════════════════════════ -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="16,10">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Revert"
+                            Command="{Binding RevertSettingsCommand}"
+                            Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource AccentButton}"
+                            Content="Save Settings"
+                            Command="{Binding SaveSettingsCommand}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Scrollable settings form ══════════════════════ -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="24,20">
+                <StackPanel MaxWidth="720">
+
+                    <TextBlock Text="Settings" Style="{StaticResource HeaderText}"
+                               Margin="0,0,0,20"/>
+
+                    <!-- ── General ──────────────────────────────── -->
+                    <GroupBox Header="General">
+                        <StackPanel>
+                            <TextBlock Text="Default Save Path" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Settings.DefaultSavePath, UpdateSourceTrigger=PropertyChanged}"
+                                         Grid.Column="0"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0"
+                                        Style="{StaticResource SubtleButton}"/>
+                            </Grid>
+
+                            <TextBlock Text="Listen Port Range" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Text="{Binding Settings.ListenPortRangeStart, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="80"/>
+                                <TextBlock Text=" - " VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBox Text="{Binding Settings.ListenPortRangeEnd, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="80"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── WebUI ───────────────────────────────── -->
+                    <GroupBox Header="WebUI">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Host" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="0"
+                                     Text="{Binding Settings.WebUIHost, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,0,12"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Port" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="2"
+                                     Text="{Binding Settings.WebUIPort, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,0,12"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Username" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="3" Grid.Column="0"
+                                     Text="{Binding Settings.WebUIUsername, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Password" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="3" Grid.Column="2"
+                                     Text="{Binding Settings.WebUIPassword, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- ── Seeding Policy ──────────────────────── -->
+                    <GroupBox Header="Seeding Policy">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="16"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Global Max Ratio" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="0"
+                                         Text="{Binding Settings.GlobalMaxRatio, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Global Max Seed Time (min)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <TextBox Grid.Row="1" Grid.Column="2"
+                                         Text="{Binding Settings.GlobalMaxSeedingTimeMinutes, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Seed Limit Action" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <ComboBox Grid.Row="4" Grid.Column="0"
+                                          SelectedItem="{Binding Settings.SeedLimitAction}"
+                                          ItemsSource="{Binding Source={x:Static vm:SeedLimitActionValues.All}}"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Minimum Seed Time (min)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <TextBox Grid.Row="4" Grid.Column="2"
+                                         Text="{Binding Settings.MinimumSeedTimeMinutes, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── Health Monitor ──────────────────────── -->
+                    <GroupBox Header="Health Monitor">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Stall Threshold (minutes)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding Settings.HealthStallMinutes, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,2">
+                                    <CheckBox Content="Auto-reannounce on stall"
+                                              IsChecked="{Binding Settings.HealthReannounceOnStall}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── VPN Protection ──────────────────────── -->
+                    <GroupBox Header="VPN Protection">
+                        <StackPanel>
+                            <CheckBox Content="Enable VPN monitoring"
+                                      IsChecked="{Binding Settings.VpnEnabled}"
+                                      Margin="0,0,0,12"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="16"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <CheckBox Grid.Row="0" Grid.Column="0" Content="Kill switch"
+                                          IsChecked="{Binding Settings.VpnKillSwitch}"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="Bind to VPN interface"
+                                          IsChecked="{Binding Settings.VpnBindInterface}"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Interface Prefix" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <TextBox Grid.Row="3" Grid.Column="0"
+                                         Text="{Binding Settings.VpnInterfacePrefix, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="2" Text="Monitor Interval (sec)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                                <TextBox Grid.Row="3" Grid.Column="2"
+                                         Text="{Binding Settings.VpnMonitorIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── Disk Space ──────────────────────────── -->
+                    <GroupBox Header="Disk Space">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Minimum Free Space (GB)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="0"
+                                     Text="{Binding Settings.DiskSpaceMinimumGB, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Monitor Path" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="2"
+                                     Text="{Binding Settings.DiskSpaceMonitorPath, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- ── *arr Integration ────────────────────── -->
+                    <GroupBox Header="*arr Integration">
+                        <StackPanel>
+                            <TextBlock Text="Configured endpoints:" Style="{StaticResource SecondaryText}" Margin="0,0,0,8"/>
+                            <ItemsControl ItemsSource="{Binding Settings.ArrEndpoints}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8"
+                                                Background="{StaticResource BackgroundBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock>
+                                                        <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
+                                                        <Run Text="{Binding Kind, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding BaseURL}" Style="{StaticResource MutedText}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Style="{StaticResource SubtleButton}"
+                                                        Content="Remove"
+                                                        Foreground="{StaticResource ErrorBrush}"
+                                                        VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Add Endpoint" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── Bandwidth Schedule ──────────────────── -->
+                    <GroupBox Header="Bandwidth Schedule">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Settings.BandwidthSchedule}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8"
+                                                Background="{StaticResource BackgroundBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock>
+                                                        <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        <Run Text="{Binding Enabled, Mode=OneWay, StringFormat=' ({0})'}"
+                                                             Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    </TextBlock>
+                                                    <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0">
+                                                        <Run Text="{Binding StartHour, Mode=OneWay, StringFormat='{}{0:D2}'}"/>:<Run Text="{Binding StartMinute, Mode=OneWay, StringFormat='{}{0:D2}'}"/>
+                                                        <Run Text=" - "/>
+                                                        <Run Text="{Binding EndHour, Mode=OneWay, StringFormat='{}{0:D2}'}"/>:<Run Text="{Binding EndMinute, Mode=OneWay, StringFormat='{}{0:D2}'}"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Style="{StaticResource SubtleButton}"
+                                                        Content="Remove"
+                                                        Foreground="{StaticResource ErrorBrush}"
+                                                        VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Add Schedule Rule" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── Recovery Rules ──────────────────────── -->
+                    <GroupBox Header="Recovery Rules">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Settings.RecoveryRules}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8"
+                                                Background="{StaticResource BackgroundBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock>
+                                                        <Run Text="Trigger: " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                        <Run Text="{Binding Trigger, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        <Run Text="  Action: " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                        <Run Text="{Binding Action, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0">
+                                                        <Run Text="Delay: "/>
+                                                        <Run Text="{Binding DelayMinutes, Mode=OneWay}"/>
+                                                        <Run Text=" min"/>
+                                                        <Run Text="  Enabled: "/>
+                                                        <Run Text="{Binding Enabled, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Style="{StaticResource SubtleButton}"
+                                                        Content="Remove"
+                                                        Foreground="{StaticResource ErrorBrush}"
+                                                        VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Add Recovery Rule" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ── Backup / Restore ────────────────────── -->
+                    <GroupBox Header="Backup / Restore">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Export Backup"
+                                    Command="{Binding ExportBackupCommand}"
+                                    Margin="0,0,12,0"/>
+                            <Button Content="Import Backup"
+                                    Command="{Binding ImportBackupCommand}"/>
+                            <Separator Margin="16,0" Width="1" Background="{StaticResource BorderBrush}"/>
+                            <Button Content="Open WebUI"
+                                    Command="{Binding OpenWebUICommand}"
+                                    Style="{StaticResource SubtleButton}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Bottom spacer -->
+                    <Border Height="40"/>
+
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

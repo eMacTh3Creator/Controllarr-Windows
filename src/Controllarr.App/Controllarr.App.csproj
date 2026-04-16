@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Controllarr.App</RootNamespace>
+    <AssemblyName>Controllarr</AssemblyName>
+    <ApplicationIcon>Assets\controllarr.ico</ApplicationIcon>
+    <Version>1.2.0</Version>
+    <Company>Controllarr</Company>
+    <Product>Controllarr</Product>
+    <Description>Native Windows BitTorrent client for media server workflows</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Controllarr.Core\Controllarr.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+  </ItemGroup>
+
+</Project>

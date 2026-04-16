@@ -1,0 +1,504 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ════════════════════════════════════════════════════════════
+         RECOVERY VIEW
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="RecoveryViewTemplate">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="24,16">
+                <StackPanel>
+                    <TextBlock Text="Recovery Log" Style="{StaticResource HeaderText}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Automated recovery actions taken by the system."
+                               Style="{StaticResource SecondaryText}"/>
+                </StackPanel>
+            </Border>
+
+            <DataGrid ItemsSource="{Binding RecoveryRecords}"
+                      Margin="24,0,24,24">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Torrent"
+                                        Binding="{Binding TorrentName}"
+                                        Width="*" MinWidth="180"/>
+                    <DataGridTextColumn Header="Trigger"
+                                        Binding="{Binding Trigger}"
+                                        Width="130"/>
+                    <DataGridTextColumn Header="Action"
+                                        Binding="{Binding Action}"
+                                        Width="120"/>
+                    <DataGridTextColumn Header="Source"
+                                        Binding="{Binding Source}"
+                                        Width="100"/>
+                    <DataGridTemplateColumn Header="Success" Width="70">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Ellipse Width="8" Height="8"
+                                         HorizontalAlignment="Center">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource StatusRedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Success}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Message"
+                                        Binding="{Binding Message}"
+                                        Width="200"/>
+                    <DataGridTextColumn Header="Timestamp"
+                                        Binding="{Binding Timestamp, StringFormat='{}{0:MMM dd HH:mm}'}"
+                                        Width="120"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </DataTemplate>
+
+    <!-- ════════════════════════════════════════════════════════════
+         POST-PROCESSOR VIEW
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="PostProcessorViewTemplate">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="24,16">
+                <StackPanel>
+                    <TextBlock Text="Post-Processor" Style="{StaticResource HeaderText}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Style="{StaticResource SecondaryText}">
+                        <Run Text="Tracking "/>
+                        <Run Text="{Binding PostRecords.Count, Mode=OneWay}"/>
+                        <Run Text=" completed torrent(s) through post-processing."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <DataGrid ItemsSource="{Binding PostRecords}"
+                      Margin="24,0,24,24">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Torrent"
+                                        Binding="{Binding Name}"
+                                        Width="*" MinWidth="180"/>
+                    <DataGridTextColumn Header="Category"
+                                        Binding="{Binding Category}"
+                                        Width="100"/>
+                    <DataGridTemplateColumn Header="Stage" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="4" Padding="8,3"
+                                        HorizontalAlignment="Left">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stage}" Value="Done">
+                                                    <Setter Property="Background">
+                                                        <Setter.Value>
+                                                            <SolidColorBrush Color="#1C3B1C"/>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Stage}" Value="Failed">
+                                                    <Setter Property="Background">
+                                                        <Setter.Value>
+                                                            <SolidColorBrush Color="#3B1C1C"/>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Stage}" FontSize="11">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Stage}" Value="Done">
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Stage}" Value="Failed">
+                                                        <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Message"
+                                        Binding="{Binding Message}"
+                                        Width="250"/>
+                    <DataGridTextColumn Header="Last Updated"
+                                        Binding="{Binding LastUpdated, StringFormat='{}{0:MMM dd HH:mm}'}"
+                                        Width="120"/>
+
+                    <!-- Retry button column for failed records -->
+                    <DataGridTemplateColumn Header="" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Retry"
+                                        Foreground="{StaticResource AccentLightBrush}"
+                                        Command="{Binding DataContext.RetryPostProcessorCommand,
+                                                  RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding InfoHash}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SubtleButton}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stage}" Value="Failed">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </DataTemplate>
+
+    <!-- ════════════════════════════════════════════════════════════
+         SEEDING VIEW
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="SeedingViewTemplate">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="24,16">
+                <StackPanel>
+                    <TextBlock Text="Seeding Enforcement" Style="{StaticResource HeaderText}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="History of seeding policy enforcement actions."
+                               Style="{StaticResource SecondaryText}"/>
+                </StackPanel>
+            </Border>
+
+            <DataGrid ItemsSource="{Binding SeedingLog}"
+                      Margin="24,0,24,24">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Torrent"
+                                        Binding="{Binding Name}"
+                                        Width="*" MinWidth="180"/>
+                    <DataGridTextColumn Header="Reason"
+                                        Binding="{Binding Reason}"
+                                        Width="250"/>
+                    <DataGridTemplateColumn Header="Action" Width="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Action}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Action}" Value="Pause">
+                                                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Action}" Value="RemoveDeleteFiles">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Timestamp"
+                                        Binding="{Binding Timestamp, StringFormat='{}{0:MMM dd HH:mm:ss}'}"
+                                        Width="140"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </DataTemplate>
+
+    <!-- ════════════════════════════════════════════════════════════
+         *ARR VIEW
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="ArrViewTemplate">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="24,16">
+                <StackPanel>
+                    <TextBlock Text="*arr Notifications" Style="{StaticResource HeaderText}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Notifications sent to Sonarr/Radarr endpoints."
+                               Style="{StaticResource SecondaryText}"/>
+                </StackPanel>
+            </Border>
+
+            <DataGrid ItemsSource="{Binding ArrNotifications}"
+                      Margin="24,0,24,24">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Torrent"
+                                        Binding="{Binding TorrentName}"
+                                        Width="*" MinWidth="180"/>
+                    <DataGridTextColumn Header="Endpoint"
+                                        Binding="{Binding Endpoint}"
+                                        Width="130"/>
+                    <DataGridTemplateColumn Header="Success" Width="70">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Ellipse Width="8" Height="8"
+                                         HorizontalAlignment="Center">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource StatusRedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Success}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Message"
+                                        Binding="{Binding Message}"
+                                        Width="250"/>
+                    <DataGridTextColumn Header="Timestamp"
+                                        Binding="{Binding Timestamp, StringFormat='{}{0:MMM dd HH:mm:ss}'}"
+                                        Width="140"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </DataTemplate>
+
+    <!-- ════════════════════════════════════════════════════════════
+         DISK SPACE VIEW (shown as info card, not a DataGrid)
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="DiskSpaceViewTemplate">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
+            <StackPanel MaxWidth="600">
+                <TextBlock Text="Disk Space Monitor" Style="{StaticResource HeaderText}"
+                           Margin="0,0,0,20"/>
+
+                <!-- Status card -->
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="16"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Status indicator -->
+                        <Ellipse Grid.Row="0" Grid.Column="0"
+                                 Width="12" Height="12"
+                                 Margin="0,0,12,0"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DiskPressure}" Value="True">
+                                            <Setter Property="Fill" Value="{StaticResource StatusRedBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+
+                        <TextBlock Grid.Row="0" Grid.Column="1">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource SubheaderText}">
+                                    <Setter Property="Text" Value="Disk Space OK"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DiskPressure}" Value="True">
+                                            <Setter Property="Text" Value="Low Disk Space"/>
+                                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <!-- Free space -->
+                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Free Space: " Style="{StaticResource SecondaryText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DiskSpaceStatus.FreeBytes, StringFormat='{}{0:N0} bytes'}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Threshold -->
+                        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Threshold: " Style="{StaticResource SecondaryText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DiskSpaceStatus.ThresholdBytes, StringFormat='{}{0:N0} bytes'}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Shortfall -->
+                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Shortfall: " Style="{StaticResource SecondaryText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DiskSpaceStatus.ShortfallBytes, StringFormat='{}{0:N0} bytes'}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="12"
+                                       Foreground="{StaticResource WarningBrush}"/>
+                        </StackPanel>
+
+                        <!-- Monitor path -->
+                        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal">
+                            <TextBlock Text="Path: " Style="{StaticResource SecondaryText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DiskSpaceStatus.MonitorPath}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Recheck button -->
+                <Button Style="{StaticResource AccentButton}"
+                        Content="Recheck Now"
+                        Command="{Binding RecheckDiskSpaceCommand}"
+                        HorizontalAlignment="Left"
+                        Margin="0,0,0,20"/>
+
+                <!-- Paused torrents -->
+                <TextBlock Text="Paused Due to Low Disk Space"
+                           Style="{StaticResource SubheaderText}"
+                           Margin="0,0,0,8"/>
+                <TextBlock Text="No torrents paused."
+                           Style="{StaticResource MutedText}"
+                           Margin="0,0,0,8"/>
+            </StackPanel>
+        </ScrollViewer>
+    </DataTemplate>
+
+    <!-- ════════════════════════════════════════════════════════════
+         VPN VIEW
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="VpnViewTemplate">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
+            <StackPanel MaxWidth="600">
+                <TextBlock Text="VPN Monitor" Style="{StaticResource HeaderText}"
+                           Margin="0,0,0,20"/>
+
+                <!-- Status card -->
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <!-- Connection status -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <Ellipse Width="12" Height="12"
+                                     Margin="0,0,12,0"
+                                     VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource StatusRedBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding VpnConnected}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource StatusGreenBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Style="{StaticResource SubheaderText}"
+                                       Text="{Binding VpnStatusText}"/>
+                        </StackPanel>
+
+                        <Separator Margin="0,0,0,12"/>
+
+                        <!-- Details grid -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Interface:"
+                                       Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding VpnStatus.InterfaceName, FallbackValue='N/A'}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="12"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="IP Address:"
+                                       Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1"
+                                       Text="{Binding VpnStatus.InterfaceIP, FallbackValue='N/A'}"
+                                       FontFamily="{StaticResource MonoFontFamily}" FontSize="12"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Kill Switch:"
+                                       Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Disengaged"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding VpnStatus.KillSwitchEngaged}" Value="True">
+                                                <Setter Property="Text" Value="ENGAGED"/>
+                                                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Bound to VPN:"
+                                       Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="No"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding VpnStatus.BoundToVPN}" Value="True">
+                                                <Setter Property="Text" Value="Yes"/>
+                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Paused Torrents:"
+                                       Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Grid.Row="8" Grid.Column="1"
+                                       Text="{Binding VpnStatus.PausedHashes.Count, FallbackValue='0'}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DataTemplate>
+
+</ResourceDictionary>
