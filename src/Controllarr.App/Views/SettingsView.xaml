@@ -13,6 +13,11 @@
                     BorderThickness="0,1,0,0"
                     Padding="16,10">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding SaveFeedbackText}"
+                               Foreground="{StaticResource AccentBrush}"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Margin="0,0,16,0"/>
                     <Button Content="Revert"
                             Command="{Binding RevertSettingsCommand}"
                             Margin="0,0,8,0"/>
@@ -35,6 +40,10 @@
                     <!-- ── General ──────────────────────────────── -->
                     <GroupBox Header="General">
                         <StackPanel>
+                            <CheckBox Content="Launch Controllarr at Windows startup"
+                                      IsChecked="{Binding LaunchAtStartup}"
+                                      Margin="0,0,0,16"/>
+
                             <TextBlock Text="Default Save Path" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -44,7 +53,8 @@
                                 <TextBox Text="{Binding Settings.DefaultSavePath, UpdateSourceTrigger=PropertyChanged}"
                                          Grid.Column="0"/>
                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0"
-                                        Style="{StaticResource SubtleButton}"/>
+                                        Style="{StaticResource SubtleButton}"
+                                        Command="{Binding BrowseSavePathCommand}"/>
                             </Grid>
 
                             <TextBlock Text="Listen Port Range" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
@@ -207,8 +217,17 @@
                                      Text="{Binding Settings.DiskSpaceMinimumGB, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
 
                             <TextBlock Grid.Row="0" Grid.Column="2" Text="Monitor Path" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
-                            <TextBox Grid.Row="1" Grid.Column="2"
-                                     Text="{Binding Settings.DiskSpaceMonitorPath, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Grid Grid.Row="1" Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding Settings.DiskSpaceMonitorPath, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0"
+                                        Style="{StaticResource SubtleButton}"
+                                        Command="{Binding BrowseDiskMonitorPathCommand}"/>
+                            </Grid>
                         </Grid>
                     </GroupBox>
 
@@ -238,13 +257,16 @@
                                                         Style="{StaticResource SubtleButton}"
                                                         Content="Remove"
                                                         Foreground="{StaticResource ErrorBrush}"
-                                                        VerticalAlignment="Center"/>
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.RemoveArrEndpointCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Button Content="Add Endpoint" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                            <Button Content="Add Endpoint" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Command="{Binding AddArrEndpointCommand}"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -277,13 +299,16 @@
                                                         Style="{StaticResource SubtleButton}"
                                                         Content="Remove"
                                                         Foreground="{StaticResource ErrorBrush}"
-                                                        VerticalAlignment="Center"/>
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.RemoveBandwidthRuleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Button Content="Add Schedule Rule" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                            <Button Content="Add Schedule Rule" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Command="{Binding AddBandwidthRuleCommand}"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -319,13 +344,16 @@
                                                         Style="{StaticResource SubtleButton}"
                                                         Content="Remove"
                                                         Foreground="{StaticResource ErrorBrush}"
-                                                        VerticalAlignment="Center"/>
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.RemoveRecoveryRuleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Button Content="Add Recovery Rule" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                            <Button Content="Add Recovery Rule" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Command="{Binding AddRecoveryRuleCommand}"/>
                         </StackPanel>
                     </GroupBox>
 

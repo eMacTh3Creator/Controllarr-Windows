@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -129,6 +131,12 @@ namespace Controllarr.App.ViewModels
         [ObservableProperty]
         private string _logSearchText = string.Empty;
 
+        [ObservableProperty]
+        private string _saveFeedbackText = string.Empty;
+
+        [ObservableProperty]
+        private bool _launchAtStartup;
+
         // ── Computed display properties ────────────────────────────
 
         public string DownloadSpeedFormatted =>
@@ -156,6 +164,49 @@ namespace Controllarr.App.ViewModels
         // ════════════════════════════════════════════════════════════
         // Commands
         // ════════════════════════════════════════════════════════════
+
+        // ── Launch at startup via registry ────────────────────────
+        private const string StartupRegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+        private const string StartupValueName = "Controllarr";
+
+        partial void OnLaunchAtStartupChanged(bool value)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegistryKey, writable: true);
+                if (key == null) return;
+
+                if (value)
+                {
+                    string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+                    if (!string.IsNullOrEmpty(exePath))
+                        key.SetValue(StartupValueName, $"\"{exePath}\" --minimized");
+                }
+                else
+                {
+                    key.DeleteValue(StartupValueName, throwOnMissingValue: false);
+                }
+
+                _logger.Info("UI", value ? "Launch at startup enabled" : "Launch at startup disabled");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("UI", $"Failed to set startup: {ex.Message}");
+            }
+        }
+
+        private static bool ReadLaunchAtStartup()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegistryKey, writable: false);
+                return key?.GetValue(StartupValueName) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         [RelayCommand]
         private void SelectTab(string tab)
@@ -289,6 +340,14 @@ namespace Controllarr.App.ViewModels
             _store.ReplaceSettings(Settings);
             _settingsUserModified = false;
             _logger.Info("UI", "Settings saved");
+
+            // Show feedback, then clear after 2.5s
+            SaveFeedbackText = "Settings saved!";
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2500);
+                Application.Current?.Dispatcher.Invoke(() => SaveFeedbackText = string.Empty);
+            });
         }
 
         [RelayCommand]
@@ -420,10 +479,181 @@ namespace Controllarr.App.ViewModels
         }
 
         [RelayCommand]
+        private void BrowseSavePath()
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select Default Save Path",
+                UseDescriptionForTitle = true,
+                SelectedPath = Settings.DefaultSavePath
+            };
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.DefaultSavePath = dialog.SelectedPath;
+                OnPropertyChanged(nameof(Settings));
+                _settingsUserModified = true;
+            }
+        }
+
+        [RelayCommand]
+        private void BrowseDiskMonitorPath()
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select Disk Monitor Path",
+                UseDescriptionForTitle = true,
+                SelectedPath = Settings.DiskSpaceMonitorPath
+            };
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.DiskSpaceMonitorPath = dialog.SelectedPath;
+                OnPropertyChanged(nameof(Settings));
+                _settingsUserModified = true;
+            }
+        }
+
+        [RelayCommand]
+        private void AddArrEndpoint()
+        {
+            var endpoint = new ArrEndpoint
+            {
+                Name = $"Endpoint {Settings.ArrEndpoints.Count + 1}",
+                Kind = ArrKind.Sonarr,
+                BaseURL = "http://localhost:8989",
+                ApiKey = ""
+            };
+            Settings.ArrEndpoints.Add(endpoint);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void RemoveArrEndpoint(ArrEndpoint? endpoint)
+        {
+            if (endpoint == null) return;
+            Settings.ArrEndpoints.Remove(endpoint);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void AddBandwidthRule()
+        {
+            var rule = new BandwidthRule
+            {
+                Name = $"Rule {Settings.BandwidthSchedule.Count + 1}",
+                Enabled = true,
+                DaysOfWeek = new List<int> { 1, 2, 3, 4, 5, 6, 7 },
+                StartHour = 22, StartMinute = 0,
+                EndHour = 6, EndMinute = 0,
+                MaxDownloadKBps = 1024,
+                MaxUploadKBps = 512
+            };
+            Settings.BandwidthSchedule.Add(rule);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void RemoveBandwidthRule(BandwidthRule? rule)
+        {
+            if (rule == null) return;
+            Settings.BandwidthSchedule.Remove(rule);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void AddRecoveryRule()
+        {
+            var rule = new RecoveryRule
+            {
+                Enabled = true,
+                Trigger = RecoveryTrigger.NoPeers,
+                Action = RecoveryAction.Reannounce,
+                DelayMinutes = 10
+            };
+            Settings.RecoveryRules.Add(rule);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void RemoveRecoveryRule(RecoveryRule? rule)
+        {
+            if (rule == null) return;
+            Settings.RecoveryRules.Remove(rule);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+
+        [RelayCommand]
+        private void AddCategory()
+        {
+            var cat = new Category
+            {
+                Name = $"Category {Categories.Count + 1}",
+                SavePath = Settings.DefaultSavePath
+            };
+            Categories.Add(cat);
+            SelectedCategory = cat;
+            _categoriesUserModified = true;
+        }
+
+        [RelayCommand]
+        private void RemoveSelectedCategory()
+        {
+            if (SelectedCategory == null) return;
+            var toRemove = SelectedCategory;
+            SelectedCategory = null;
+            Categories.Remove(toRemove);
+            _categoriesUserModified = true;
+        }
+
+        [RelayCommand]
+        private void BrowseCategorySavePath()
+        {
+            if (SelectedCategory == null) return;
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select Category Save Path",
+                UseDescriptionForTitle = true,
+                SelectedPath = SelectedCategory.SavePath ?? string.Empty
+            };
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                SelectedCategory.SavePath = dialog.SelectedPath;
+                OnPropertyChanged(nameof(SelectedCategory));
+                _categoriesUserModified = true;
+            }
+        }
+
+        [RelayCommand]
+        private void BrowseCategoryCompletePath()
+        {
+            if (SelectedCategory == null) return;
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select Category Complete Path",
+                UseDescriptionForTitle = true,
+                SelectedPath = SelectedCategory.CompletePath ?? string.Empty
+            };
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                SelectedCategory.CompletePath = dialog.SelectedPath;
+                OnPropertyChanged(nameof(SelectedCategory));
+                _categoriesUserModified = true;
+            }
+        }
+
+        [RelayCommand]
         private void MarkCategoriesModified()
         {
             _categoriesUserModified = true;
         }
+
+        [ObservableProperty]
+        private string _categorySaveFeedbackText = string.Empty;
 
         [RelayCommand]
         private void SaveCategories()
@@ -433,6 +663,13 @@ namespace Controllarr.App.ViewModels
             _store.ReplaceCategories(Categories.ToList());
             _categoriesUserModified = false;
             _logger.Info("UI", "Categories saved");
+
+            CategorySaveFeedbackText = "Category saved!";
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2500);
+                Application.Current?.Dispatcher.Invoke(() => CategorySaveFeedbackText = string.Empty);
+            });
         }
 
         [RelayCommand]
@@ -537,6 +774,10 @@ namespace Controllarr.App.ViewModels
 
                 // Load initial settings for UI
                 Settings = _store.GetSettings();
+
+                // Read startup registry state (without triggering the setter logic)
+                _launchAtStartup = ReadLaunchAtStartup();
+                OnPropertyChanged(nameof(LaunchAtStartup));
 
                 IsBooting = false;
 

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using TextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
 
 namespace Controllarr.App.Helpers
 {

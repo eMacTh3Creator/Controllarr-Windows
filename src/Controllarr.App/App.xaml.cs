@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Win32;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
 
 using Controllarr.Core.Engine;
 using Controllarr.Core.Persistence;
@@ -26,6 +28,7 @@ namespace Controllarr.App
         // ── Startup args ───────────────────────────────────────────
         private string[] _pendingTorrentFiles = Array.Empty<string>();
         private string[] _pendingMagnets = Array.Empty<string>();
+        private bool _startMinimized;
 
         // ────────────────────────────────────────────────────────────
         // OnStartup
@@ -104,6 +107,7 @@ namespace Controllarr.App
         public TorrentEngine? Engine => _engine;
         public string[] PendingTorrentFiles => _pendingTorrentFiles;
         public string[] PendingMagnets => _pendingMagnets;
+        public bool StartMinimized => _startMinimized;
 
         /// <summary>
         /// Called by MainViewModel after it creates the runtime services.
@@ -127,6 +131,9 @@ namespace Controllarr.App
             var magnets = args
                 .Where(a => a.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
+
+            _startMinimized = args.Any(a =>
+                a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
 
             _pendingTorrentFiles = torrentFiles;
             _pendingMagnets = magnets;
