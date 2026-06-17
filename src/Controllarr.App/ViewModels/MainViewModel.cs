@@ -900,6 +900,9 @@ namespace Controllarr.App.ViewModels
                 var catMap = _store.Snapshot().CategoryByHash;
                 _engine.RestoreCategories(catMap);
 
+                // Resume torrents carried over from the previous session/update.
+                await _engine.ResumeAllAsync();
+
                 // Create service-layer components
                 _healthMonitor = new HealthMonitor(_logger);
                 _postProcessor = new PostProcessor(_logger);

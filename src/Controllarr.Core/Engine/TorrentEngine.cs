@@ -126,6 +126,7 @@ public sealed class TorrentEngine : IDisposable
     // ── Configuration ──────────────────────────────────────────
     private string _defaultSavePath;
     private readonly string _resumeDataDirectory;
+    private readonly string _stateFilePath;
     private ushort _listenPort;
 
     // ── Per-torrent metadata ───────────────────────────────────
@@ -151,6 +152,10 @@ public sealed class TorrentEngine : IDisposable
         Directory.CreateDirectory(_defaultSavePath);
         Directory.CreateDirectory(_resumeDataDirectory);
 
+        // The engine state file holds the full torrent LIST (so torrents
+        // survive restarts and updates). Fast-resume restores their progress.
+        _stateFilePath = Path.Combine(_resumeDataDirectory, "engine.state");
+
         var settings = new EngineSettingsBuilder
         {
             CacheDirectory = _resumeDataDirectory,
@@ -162,7 +167,53 @@ public sealed class TorrentEngine : IDisposable
             AutoSaveLoadFastResume = true,
         }.ToSettings();
 
-        _engine = new ClientEngine(settings);
+        // Restore previously-added torrents if we have saved engine state.
+        ClientEngine? restored = null;
+        if (File.Exists(_stateFilePath))
+        {
+            try
+            {
+                restored = ClientEngine.RestoreStateAsync(_stateFilePath).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                restored = null; // corrupt/incompatible state — start fresh
+            }
+        }
+
+        if (restored != null)
+        {
+            _engine = restored;
+
+            // Enforce our cache dir + listen port over the saved settings so a
+            // preferred-port change (or a moved profile) is still honored.
+            try
+            {
+                var rebuilt = new EngineSettingsBuilder(_engine.Settings)
+                {
+                    CacheDirectory = _resumeDataDirectory,
+                    ListenEndPoints = new Dictionary<string, System.Net.IPEndPoint>
+                    {
+                        ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, _listenPort)
+                    },
+                    AllowPortForwarding = true,
+                    AutoSaveLoadFastResume = true,
+                }.ToSettings();
+                _engine.UpdateSettingsAsync(rebuilt).GetAwaiter().GetResult();
+            }
+            catch { /* keep restored settings if the update fails */ }
+
+            // Seed added-dates for restored torrents (originals aren't persisted).
+            foreach (var mgr in _engine.Torrents)
+            {
+                var hash = mgr.InfoHashes.V1OrV2.ToHex();
+                _addedDates.TryAdd(hash, DateTime.UtcNow);
+            }
+        }
+        else
+        {
+            _engine = new ClientEngine(settings);
+        }
     }
 
     // ───────────────────────────────────────────────────────────
@@ -211,6 +262,7 @@ public sealed class TorrentEngine : IDisposable
         _addedDates[hash] = DateTime.UtcNow;
 
         await manager.StartAsync();
+        await SaveEngineStateAsync();
         return hash;
     }
 
@@ -242,6 +294,7 @@ public sealed class TorrentEngine : IDisposable
         _addedDates[hash] = DateTime.UtcNow;
 
         await manager.StartAsync();
+        await SaveEngineStateAsync();
         return hash;
     }
 
@@ -298,6 +351,7 @@ public sealed class TorrentEngine : IDisposable
             lock (_filteredLock)
                 _filteredHashes.Remove(infoHash);
 
+            await SaveEngineStateAsync();
             return true;
         }
         catch
@@ -728,11 +782,44 @@ public sealed class TorrentEngine : IDisposable
             }
             catch { /* best effort */ }
         }
+
+        // Persist the torrent list so it survives restarts/updates.
+        await SaveEngineStateAsync();
+    }
+
+    /// <summary>
+    /// Persists the full engine state (the list of torrents, their save paths
+    /// and state) so they are re-added automatically on the next launch.
+    /// </summary>
+    public async Task SaveEngineStateAsync()
+    {
+        try
+        {
+            await _engine.SaveStateAsync(_stateFilePath);
+        }
+        catch { /* best effort — never block on persistence */ }
+    }
+
+    /// <summary>
+    /// Starts every managed torrent. Used after restoring engine state so the
+    /// torrents carried over from the last session resume downloading/seeding.
+    /// </summary>
+    public async Task ResumeAllAsync()
+    {
+        foreach (var mgr in _engine.Torrents)
+        {
+            try { await mgr.StartAsync(); }
+            catch { /* already running / transient — ignore */ }
+        }
     }
 
     public async Task Shutdown()
     {
         if (_disposed) return;
+
+        // Save the torrent list first (while torrents are still present) so the
+        // next launch restores them.
+        await SaveEngineStateAsync();
 
         foreach (var mgr in _engine.Torrents)
         {
