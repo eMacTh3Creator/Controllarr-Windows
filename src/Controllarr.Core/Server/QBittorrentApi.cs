@@ -764,6 +764,24 @@ namespace Controllarr.Core.Server
 
                 store.ReplaceSettings(incoming);
                 logger.Info("API", "Settings updated via API");
+
+                // Apply a newly-set preferred listen port to the live engine so
+                // it takes effect without a restart.
+                if (incoming.PreferredListenPort is ushort pref && pref != 0 && pref != engine.ListenPort)
+                {
+                    try
+                    {
+                        engine.SetListenPort(pref).GetAwaiter().GetResult();
+                        store.SetLastKnownGoodPort(pref);
+                        engine.ForceReannounceAll().GetAwaiter().GetResult();
+                        logger.Info("API", $"Applied preferred listen port {pref}");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Warn("API", $"Failed to apply preferred port {pref}: {ex.Message}");
+                    }
+                }
+
                 return Results.Ok(incoming);
             });
 

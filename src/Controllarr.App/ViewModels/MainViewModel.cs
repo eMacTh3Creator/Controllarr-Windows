@@ -870,9 +870,10 @@ namespace Controllarr.App.ViewModels
                 // Enable the persistent crash-surviving on-disk log (v2.1.15).
                 _logger.ConfigureFile(Path.Combine(_store.Directory, "logs", "controllarr.log"));
 
-                // Create torrent engine
-                ushort port = _store.Snapshot().LastKnownGoodPort
-                              ?? initialSettings.PreferredListenPort
+                // Create torrent engine. A user-set preferred forwarded port
+                // wins over the last cycled port so it is honored on relaunch.
+                ushort port = initialSettings.PreferredListenPort
+                              ?? _store.Snapshot().LastKnownGoodPort
                               ?? initialSettings.ListenPortRangeStart;
                 _engine = new TorrentEngine(
                     initialSettings.DefaultSavePath,

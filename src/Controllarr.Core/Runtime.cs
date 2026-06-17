@@ -86,10 +86,11 @@ namespace Controllarr.Core
             var settings = state.Settings;
 
             // Honor a preferred forwarded port (e.g. a VPN provider's port) for
-            // the initial bind, falling back to the last known good port or the
-            // start of the configured range.
-            ushort listenPort = state.LastKnownGoodPort
-                                ?? settings.PreferredListenPort
+            // the initial bind. A user-set preferred port wins over the last
+            // cycled port so it is honored on relaunch; otherwise fall back to
+            // the last known good port or the start of the configured range.
+            ushort listenPort = settings.PreferredListenPort
+                                ?? state.LastKnownGoodPort
                                 ?? settings.ListenPortRangeStart;
 
             string savePath = settings.DefaultSavePath;

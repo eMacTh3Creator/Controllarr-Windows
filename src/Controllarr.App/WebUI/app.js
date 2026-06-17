@@ -456,6 +456,10 @@ function normSettings(s) {
     diskSpaceMonitorPath: s.disk_space_monitor_path ?? '',
     arrReSearchAfterHours: s.arr_re_search_after_hours ?? 6,
     arrEndpoints: Array.isArray(s.arr_endpoints) ? s.arr_endpoints.map(normArrEndpoint) : [],
+    // Keep the raw server object so a wholesale-replace save preserves any
+    // settings the form doesn't render (peer discovery, connection limits,
+    // queueing, security, UI prefs, etc.) instead of resetting them.
+    _raw: s,
   }
 }
 
@@ -496,8 +500,14 @@ function normArrEndpoint(a) {
 // Build the snake_case Settings payload the Windows server deserializes.
 function settingsToPayload(s) {
   return {
+    // Start from the raw server settings so fields the form doesn't render are
+    // preserved on this wholesale-replace save; the keys below override them.
+    ...(s._raw || {}),
     listen_port_range_start: clampPort(s.listenPortRangeStart),
     listen_port_range_end: clampPort(s.listenPortRangeEnd),
+    preferred_listen_port: (s.preferredListenPort != null && s.preferredListenPort !== '')
+      ? clampPort(s.preferredListenPort)
+      : null,
     stall_threshold_minutes: int(s.stallThresholdMinutes),
     default_save_path: s.defaultSavePath ?? '',
     web_ui_host: s.webUIHost ?? '127.0.0.1',

@@ -9,7 +9,7 @@
     <RootNamespace>Controllarr.App</RootNamespace>
     <AssemblyName>Controllarr</AssemblyName>
     <ApplicationIcon>Assets\controllarr.ico</ApplicationIcon>
-    <Version>2.1.15</Version>
+    <Version>2.1.16</Version>
     <Company>Controllarr</Company>
     <Product>Controllarr</Product>
     <Description>Native Windows BitTorrent client for media server workflows</Description>
