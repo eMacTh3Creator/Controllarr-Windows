@@ -42,6 +42,7 @@ namespace Controllarr.Core.Server
         private readonly ArrNotifier _arrNotifier;
         private readonly Action _forceCyclePort;
         private readonly string? _webUIRoot;
+        private readonly Action? _shutdownApp;
 
         // ── Session state ───────────────────────────────────────────
         private readonly ConcurrentDictionary<string, DateTime> _sessions = new();
@@ -64,7 +65,8 @@ namespace Controllarr.Core.Server
             VPNMonitor vpn,
             ArrNotifier arrNotifier,
             Action forceCyclePort,
-            string? webUIRoot = null)
+            string? webUIRoot = null,
+            Action? shutdownApp = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _port = port;
@@ -80,6 +82,7 @@ namespace Controllarr.Core.Server
             _arrNotifier = arrNotifier ?? throw new ArgumentNullException(nameof(arrNotifier));
             _forceCyclePort = forceCyclePort ?? throw new ArgumentNullException(nameof(forceCyclePort));
             _webUIRoot = webUIRoot;
+            _shutdownApp = shutdownApp;
         }
 
         // ────────────────────────────────────────────────────────────
@@ -217,7 +220,7 @@ namespace Controllarr.Core.Server
             _app.MapControllarrRoutes(
                 _engine, _store, _logger, _postProcessor, _seedingPolicy,
                 _healthMonitor, _recovery, _diskSpace, _vpn, _arrNotifier,
-                _forceCyclePort, _sessions, validateCredentials);
+                _forceCyclePort, _shutdownApp, _sessions, validateCredentials);
 
             // ── Serve static files (WebUI) ──────────────────────────
             if (!string.IsNullOrEmpty(_webUIRoot) && Directory.Exists(_webUIRoot))

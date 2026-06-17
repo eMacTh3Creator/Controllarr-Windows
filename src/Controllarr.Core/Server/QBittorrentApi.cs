@@ -48,6 +48,7 @@ namespace Controllarr.Core.Server
             VPNMonitor vpn,
             ArrNotifier arrNotifier,
             Action forceCyclePort,
+            Action? shutdownApp,
             ConcurrentDictionary<string, DateTime> sessions,
             Func<string, string, bool> validateCredentials)
         {
@@ -67,7 +68,7 @@ namespace Controllarr.Core.Server
             MapControllarrNativeRoutes(
                 app, engine, store, logger, postProcessor, seedingPolicy,
                 healthMonitor, recovery, diskSpace, vpn, arrNotifier,
-                forceCyclePort);
+                forceCyclePort, shutdownApp);
         }
 
         // ================================================================
@@ -674,8 +675,26 @@ namespace Controllarr.Core.Server
             DiskSpaceMonitor diskSpace,
             VPNMonitor vpn,
             ArrNotifier arrNotifier,
-            Action forceCyclePort)
+            Action forceCyclePort,
+            Action? shutdownApp)
         {
+            // ── Shutdown the whole app (from the Web UI) ────────────
+            app.MapPost("/api/controllarr/shutdown", (HttpContext ctx) =>
+            {
+                logger.Info("API", "Shutdown requested via Web UI");
+                if (shutdownApp == null)
+                    return Results.StatusCode(501);
+
+                // Defer briefly so this HTTP response flushes before the
+                // server and engine are torn down.
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(300);
+                    try { shutdownApp(); } catch { /* best effort */ }
+                });
+                return Results.Ok(new { status = "shutting_down" });
+            });
+
             // ── Stats ──────────────────────────────────────────────
             app.MapGet("/api/controllarr/stats", (HttpContext ctx) =>
             {

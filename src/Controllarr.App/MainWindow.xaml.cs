@@ -121,6 +121,13 @@ namespace Controllarr.App
             Close();
         }
 
+        /// <summary>Fully exit the app (used by the Web UI "Shut down" button).</summary>
+        public void ShutdownFromUi()
+        {
+            _isReallyClosing = true;
+            Close();
+        }
+
         private void RestoreFromTray()
         {
             Show();

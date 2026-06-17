@@ -599,6 +599,9 @@ const api = {
   async logout() {
     try { await request('/api/v2/auth/logout', { method: 'POST' }) } catch { /* ignore */ }
   },
+  async shutdown() {
+    await request('/api/controllarr/shutdown', { method: 'POST' })
+  },
   async torrents() {
     const data = (await getJSON('/api/v2/torrents/info')) || []
     return data.map(normTorrent)
@@ -825,6 +828,7 @@ function isSeeding(state) { return state === 'uploading' || state === 'stalledUP
 
 const state = {
   authed: false,
+  shuttingDown: false,
   activeTab: 'home',
   loading: false,
   error: null,
@@ -1092,8 +1096,21 @@ const root = document.getElementById('root')
 function render() {
   captureFocus()
   clear(root)
-  root.appendChild(state.authed ? renderApp() : renderSignIn())
+  root.appendChild(
+    state.shuttingDown ? renderShuttingDown()
+      : state.authed ? renderApp()
+      : renderSignIn())
   restoreFocus()
+}
+
+function renderShuttingDown() {
+  return el('div', { class: 'sign-in-shell' }, [
+    el('div', { class: 'sign-in-card', style: { textAlign: 'center' } }, [
+      el('div', { class: 'brand-kicker' }, ['Controllarr']),
+      el('h1', {}, ['Shutting down…']),
+      el('p', {}, ['Controllarr is closing. You can close this window — start the app again to reopen the control room.']),
+    ]),
+  ])
 }
 
 /* ---- Sign-in ------------------------------------------------------------- */
@@ -1225,6 +1242,15 @@ function renderSidebar() {
     render()
   } }, ['Sign out'])
 
+  const shutdownBtn = el('button', { type: 'button', class: 'danger', onClick: async () => {
+    if (!window.confirm('Shut down Controllarr?\n\nThe app will close and the Web UI will stop responding until you start it again.')) return
+    clearPollTimers()
+    clearDetailTimer()
+    state.shuttingDown = true
+    render()
+    try { await api.shutdown() } catch (e) { /* the server stops mid-request — expected */ }
+  } }, ['Shut down app'])
+
   return el('aside', { class: 'sidebar panel' }, [
     el('div', { class: 'sidebar-header' }, [
       el('div', { class: 'brand-kicker' }, ['Controllarr']),
@@ -1232,7 +1258,7 @@ function renderSidebar() {
       el('p', {}, ['qBittorrent-compatible control surface with Controllarr-native automation.']),
     ]),
     nav,
-    el('div', { class: 'sidebar-footer' }, [...miniStats, refreshBtn, logoutBtn]),
+    el('div', { class: 'sidebar-footer' }, [...miniStats, refreshBtn, logoutBtn, shutdownBtn]),
   ])
 }
 

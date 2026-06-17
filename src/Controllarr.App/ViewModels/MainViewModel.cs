@@ -963,7 +963,15 @@ namespace Controllarr.App.ViewModels
                     _postProcessor, _seedingPolicy, _healthMonitor,
                     _recoveryCenter, _diskSpaceMonitor, _vpnMonitor, _arrNotifier,
                     () => _portWatcher!.ForceCycle("Manual cycle via API"),
-                    webUIRoot);
+                    webUIRoot,
+                    // Shutdown-app action invoked by the Web UI's "Shut down" button.
+                    () => Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        if (Application.Current?.MainWindow is Controllarr.App.MainWindow w)
+                            w.ShutdownFromUi();
+                        else
+                            Application.Current?.Shutdown();
+                    }));
 
                 try
                 {
