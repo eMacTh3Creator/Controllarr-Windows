@@ -26,14 +26,12 @@
     <Resource Include="Assets\controllarr.ico" />
   </ItemGroup>
 
-  <!-- Bundle the no-build browser Web UI next to the executable so the
-       embedded HTTP server can serve it (Runtime resolves AppContext.BaseDirectory\WebUI).
-       With PublishSingleFile these are extracted alongside the app at runtime. -->
+  <!-- Embed the no-build browser Web UI INTO the executable so the published
+       single-file exe is genuinely self-contained. The app extracts these to
+       %AppData%\Controllarr\WebUI on boot, and the embedded HTTP server serves
+       them from there. (No loose WebUI folder needs to ship beside the exe.) -->
   <ItemGroup>
-    <Content Include="WebUI\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
+    <EmbeddedResource Include="WebUI\**\*" />
   </ItemGroup>
 
   <PropertyGroup>

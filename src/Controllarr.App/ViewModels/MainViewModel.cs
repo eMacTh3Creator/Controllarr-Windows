@@ -942,9 +942,18 @@ namespace Controllarr.App.ViewModels
                 // ── Embedded HTTP server: qBittorrent API + Controllarr API + bundled WebUI ──
                 string? webUIRoot = null;
                 string bundledWebUI = Path.Combine(AppContext.BaseDirectory, "WebUI");
-                string userWebUI = Path.Combine(_store.Directory, "WebUI");
-                if (Directory.Exists(bundledWebUI)) webUIRoot = bundledWebUI;
-                else if (Directory.Exists(userWebUI)) webUIRoot = userWebUI;
+                string extractedWebUI = Path.Combine(_store.Directory, "WebUI");
+                if (Directory.Exists(bundledWebUI) && File.Exists(Path.Combine(bundledWebUI, "index.html")))
+                {
+                    // Loose dev assets shipped next to the executable.
+                    webUIRoot = bundledWebUI;
+                }
+                else if (ExtractEmbeddedWebUI(extractedWebUI))
+                {
+                    // Single-file build: assets are embedded in the exe and
+                    // extracted to %AppData%\Controllarr\WebUI on boot.
+                    webUIRoot = extractedWebUI;
+                }
 
                 _httpServer = new ControllarrHttpServer(
                     initialSettings.WebUIHost,
@@ -1037,6 +1046,49 @@ namespace Controllarr.App.ViewModels
             _vpnMonitor?.Dispose();
             _diskSpaceMonitor?.Dispose();
             _store?.Dispose();
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // Embedded WebUI extraction
+        // ════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Writes the WebUI assets embedded in the executable out to
+        /// <paramref name="targetDir"/> so the single-file build can serve them.
+        /// Overwrites on each boot so the assets stay in sync with the exe.
+        /// Returns true if an index.html is present afterwards.
+        /// </summary>
+        private bool ExtractEmbeddedWebUI(string targetDir)
+        {
+            try
+            {
+                var asm = typeof(MainViewModel).Assembly;
+                const string marker = ".WebUI.";
+                var names = asm.GetManifestResourceNames()
+                    .Where(n => n.Contains(marker, StringComparison.Ordinal))
+                    .ToList();
+
+                if (names.Count == 0) return false;
+
+                Directory.CreateDirectory(targetDir);
+                foreach (var name in names)
+                {
+                    int idx = name.IndexOf(marker, StringComparison.Ordinal);
+                    string fileName = name.Substring(idx + marker.Length);
+                    using var stream = asm.GetManifestResourceStream(name);
+                    if (stream == null) continue;
+                    string outPath = Path.Combine(targetDir, fileName);
+                    using var fs = File.Create(outPath);
+                    stream.CopyTo(fs);
+                }
+
+                return File.Exists(Path.Combine(targetDir, "index.html"));
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Boot", $"Failed to extract embedded WebUI: {ex.Message}");
+                return false;
+            }
         }
 
         // ════════════════════════════════════════════════════════════
