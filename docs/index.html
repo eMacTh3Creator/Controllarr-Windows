@@ -239,7 +239,7 @@
           <h1>Windows-native torrent control for your <span class="arr">*arr</span> stack.</h1>
           <p class="lead">Controllarr for Windows is a self-contained BitTorrent client and qBittorrent-compatible API target built for Sonarr, Radarr, Overseerr, Plex, and operators who want a Windows box to behave like a proper media-download node. One <code>Controllarr.exe</code> &mdash; no .NET install required.</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest/download/Controllarr.exe" download>Download Controllarr.exe</a>
+            <a class="button primary" data-dl href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Download latest .exe</a>
             <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">All releases</a>
           </div>
           <div class="proof" aria-label="Project highlights">
@@ -393,7 +393,7 @@ Login:  admin / adminadmin</pre>
           <article class="step">
             <div class="step-num">1</div>
             <h3>Download</h3>
-            <p>Grab <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest/download/Controllarr.exe" download><code>Controllarr.exe</code></a> &mdash; this link always serves the newest release. Fully self-contained.</p>
+            <p>Grab <a data-dl href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest"><code>Controllarr-&lt;version&gt;.exe</code></a> &mdash; this link always serves the newest release, named with its version. Fully self-contained.</p>
           </article>
           <article class="step">
             <div class="step-num">2</div>
@@ -445,5 +445,36 @@ Login:  admin / adminadmin</pre>
       </div>
     </div>
   </footer>
+
+  <script>
+    // Resolve the newest release's versioned .exe asset on click, so the
+    // download is always the latest build *and* keeps its version in the
+    // filename (e.g. Controllarr-2.1.15.exe). Falls back to the releases page
+    // if the API is unavailable or JavaScript is disabled (the href).
+    (function () {
+      var REPO = 'eMacTh3Creator/Controllarr-Windows';
+      function resolve(e) {
+        var link = e.currentTarget;
+        e.preventDefault();
+        link.setAttribute('aria-busy', 'true');
+        fetch('https://api.github.com/repos/' + REPO + '/releases/latest', {
+          headers: { 'Accept': 'application/vnd.github+json' }
+        })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+          .then(function (data) {
+            var assets = data.assets || [];
+            var exe = assets.filter(function (a) { return /\.exe$/i.test(a.name); })[0];
+            window.location.href = exe
+              ? exe.browser_download_url
+              : (data.html_url || link.href);
+          })
+          .catch(function () { window.location.href = link.href; })
+          .finally(function () { link.removeAttribute('aria-busy'); });
+      }
+      document.querySelectorAll('a[data-dl]').forEach(function (a) {
+        a.addEventListener('click', resolve);
+      });
+    })();
+  </script>
 </body>
 </html>
