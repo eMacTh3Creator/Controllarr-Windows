@@ -54,6 +54,11 @@ namespace Controllarr.Core.Persistence
         private CancellationTokenSource? _debounceCts;
         private bool _disposed;
 
+        // WebUI/API password kept encrypted at rest via DPAPI (CredentialStore).
+        // state.json never stores the plaintext; this in-memory copy is the
+        // decrypted working value, overlaid into the Settings handed to callers.
+        private string _webUIPassword = "adminadmin";
+
         // ────────────────────────────────────────────────────────────
         // Constructor
         // ────────────────────────────────────────────────────────────
@@ -74,6 +79,53 @@ namespace Controllarr.Core.Persistence
 
             // Load or create default state
             _state = LoadOrCreateState();
+
+            // Resolve the WebUI password from DPAPI (migrating any plaintext).
+            InitializeWebUISecret();
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // WebUI password secret (DPAPI at rest)
+        // ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Loads the WebUI password from the DPAPI credential store, migrating
+        /// any plaintext password found in state.json into DPAPI and blanking
+        /// it on disk. Falls back to the default if decryption fails (e.g. the
+        /// state was copied to a different Windows profile), mirroring the
+        /// macOS app's reset-on-migration-failure behavior.
+        /// </summary>
+        private void InitializeWebUISecret()
+        {
+            if (!string.IsNullOrEmpty(_state.Settings.WebUIPassword))
+            {
+                // Plaintext present (fresh default or legacy state) -> migrate.
+                _webUIPassword = _state.Settings.WebUIPassword;
+                try { CredentialStore.Set(CredentialStore.WebUIPasswordKey, _webUIPassword); } catch { }
+                _state.Settings.WebUIPassword = string.Empty;
+                WriteToDisk(_state);
+            }
+            else
+            {
+                var stored = CredentialStore.Get(CredentialStore.WebUIPasswordKey);
+                _webUIPassword = string.IsNullOrEmpty(stored) ? "adminadmin" : stored;
+                if (string.IsNullOrEmpty(stored))
+                {
+                    try { CredentialStore.Set(CredentialStore.WebUIPasswordKey, _webUIPassword); } catch { }
+                }
+            }
+        }
+
+        /// <summary>Persists a (possibly new) WebUI password to DPAPI; blanks the plaintext on the object.</summary>
+        private void CaptureWebUISecret(Settings settings)
+        {
+            if (!string.IsNullOrEmpty(settings.WebUIPassword))
+            {
+                _webUIPassword = settings.WebUIPassword;
+                try { CredentialStore.Set(CredentialStore.WebUIPasswordKey, _webUIPassword); } catch { }
+            }
+            // Never persist the plaintext password into state.json.
+            settings.WebUIPassword = string.Empty;
         }
 
         // ────────────────────────────────────────────────────────────
@@ -86,7 +138,9 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
-                return DeepClone(_state);
+                var snapshot = DeepClone(_state);
+                snapshot.Settings.WebUIPassword = _webUIPassword;   // overlay decrypted secret
+                return snapshot;
             }
             finally
             {
@@ -103,7 +157,9 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
-                return DeepClone(_state.Settings);
+                var settings = DeepClone(_state.Settings);
+                settings.WebUIPassword = _webUIPassword;   // overlay decrypted secret
+                return settings;
             }
             finally
             {
@@ -119,6 +175,7 @@ namespace Controllarr.Core.Persistence
             try
             {
                 transform(_state.Settings);
+                CaptureWebUISecret(_state.Settings);   // move any new plaintext password into DPAPI
             }
             finally
             {
@@ -135,6 +192,7 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
+                CaptureWebUISecret(newSettings);       // move any new plaintext password into DPAPI
                 _state.Settings = newSettings;
             }
             finally
@@ -339,7 +397,13 @@ namespace Controllarr.Core.Persistence
                 _semaphore.Release();
             }
 
-            if (!includeSecrets)
+            if (includeSecrets)
+            {
+                // state.json no longer holds the plaintext WebUI password; include
+                // the decrypted value so a with-secrets backup can be restored.
+                snapshot.Settings.WebUIPassword = _webUIPassword;
+            }
+            else
             {
                 snapshot.Settings.WebUIPassword = "***REDACTED***";
                 foreach (var ep in snapshot.Settings.ArrEndpoints)
@@ -377,6 +441,10 @@ namespace Controllarr.Core.Persistence
             {
                 _semaphore.Release();
             }
+
+            // Migrate any plaintext WebUI password from the imported backup into
+            // DPAPI (and blank it on disk).
+            InitializeWebUISecret();
 
             // Write immediately – don't debounce a restore
             FlushNow();

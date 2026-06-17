@@ -12,6 +12,7 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Views/HomeView.xaml"/>
                 <ResourceDictionary Source="Views/TorrentsView.xaml"/>
                 <ResourceDictionary Source="Views/SettingsView.xaml"/>
                 <ResourceDictionary Source="Views/HealthView.xaml"/>
@@ -31,6 +32,8 @@
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="Show Controllarr" Click="TrayShow_Click" FontWeight="Bold"/>
+                    <MenuItem Header="Open Web UI" Command="{Binding OpenWebUICommand}"/>
+                    <MenuItem Header="Check for Updates…" Command="{Binding CheckForUpdatesCommand}"/>
                     <Separator/>
                     <MenuItem Header="Exit" Click="TrayExit_Click"/>
                 </ContextMenu>
@@ -190,6 +193,17 @@
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <RadioButton Style="{StaticResource NavRadioButton}"
+                                         IsChecked="{Binding IsTabSelected_Home, Mode=TwoWay}"
+                                         Command="{Binding SelectTabCommand}"
+                                         CommandParameter="Home">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Home" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton Style="{StaticResource NavRadioButton}"
                                          IsChecked="{Binding IsTabSelected_Torrents, Mode=TwoWay}"
                                          Command="{Binding SelectTabCommand}"
                                          CommandParameter="Torrents">
@@ -293,8 +307,11 @@
                             Margin="0">
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
-                        <Setter Property="ContentTemplate" Value="{StaticResource TorrentsViewTemplate}"/>
+                        <Setter Property="ContentTemplate" Value="{StaticResource HomeViewTemplate}"/>
                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedTab}" Value="Home">
+                                <Setter Property="ContentTemplate" Value="{StaticResource HomeViewTemplate}"/>
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedTab}" Value="Torrents">
                                 <Setter Property="ContentTemplate" Value="{StaticResource TorrentsViewTemplate}"/>
                             </DataTrigger>

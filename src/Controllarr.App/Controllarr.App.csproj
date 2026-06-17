@@ -9,7 +9,7 @@
     <RootNamespace>Controllarr.App</RootNamespace>
     <AssemblyName>Controllarr</AssemblyName>
     <ApplicationIcon>Assets\controllarr.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>2.1.15</Version>
     <Company>Controllarr</Company>
     <Product>Controllarr</Product>
     <Description>Native Windows BitTorrent client for media server workflows</Description>
@@ -17,6 +17,23 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Controllarr.Core\Controllarr.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The app icon must also ship as a WPF resource so the window + tray icon
+       (pack URI /Assets/controllarr.ico) resolve at runtime; ApplicationIcon
+       alone only sets the .exe's shell icon. -->
+  <ItemGroup>
+    <Resource Include="Assets\controllarr.ico" />
+  </ItemGroup>
+
+  <!-- Bundle the no-build browser Web UI next to the executable so the
+       embedded HTTP server can serve it (Runtime resolves AppContext.BaseDirectory\WebUI).
+       With PublishSingleFile these are extracted alongside the app at runtime. -->
+  <ItemGroup>
+    <Content Include="WebUI\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <PropertyGroup>

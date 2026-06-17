@@ -72,13 +72,24 @@ namespace Controllarr.Core
                     "Controllarr");
 
             Directory.CreateDirectory(storeDir);
+
+            // Enable the persistent crash-surviving on-disk log as early as
+            // possible so startup problems are captured too. Lives next to the
+            // state directory and survives crashes/reboots; the UI exposes a
+            // "Reveal Log File" action via Logger.LogFilePath.
+            Logger.ConfigureFile(Path.Combine(storeDir, "logs", "controllarr.log"));
+
             Store = new PersistenceStore(storeDir);
 
             // ── 3. Snapshot settings and resolve listen port ───────
             var state = Store.Snapshot();
             var settings = state.Settings;
 
+            // Honor a preferred forwarded port (e.g. a VPN provider's port) for
+            // the initial bind, falling back to the last known good port or the
+            // start of the configured range.
             ushort listenPort = state.LastKnownGoodPort
+                                ?? settings.PreferredListenPort
                                 ?? settings.ListenPortRangeStart;
 
             string savePath = settings.DefaultSavePath;
@@ -97,6 +108,12 @@ namespace Controllarr.Core
 
             // ── 4. Torrent engine ──────────────────────────────────
             Engine = new TorrentEngine(savePath, resumeDir, listenPort);
+
+            // Apply connection-limit / peer-discovery tuning from settings.
+            Engine.ApplyTuning(
+                settings.ConnectionLimits.GlobalMaxConnections,
+                settings.PeerDiscovery.DhtEnabled,
+                settings.PeerDiscovery.LsdEnabled);
 
             // ── 5. Restore category map and blocked extensions ─────
             if (state.CategoryByHash.Count > 0)
@@ -158,11 +175,21 @@ namespace Controllarr.Core
             string httpHost = httpHostOverride ?? settings.WebUIHost;
             int httpPort = httpPortOverride ?? settings.WebUIPort;
 
-            // Locate a WebUI directory adjacent to the store if it exists.
+            // Locate the bundled WebUI. Prefer the assets shipped next to the
+            // executable; fall back to a user-supplied folder under the state
+            // directory for advanced overrides.
             string? webUIRoot = null;
+            string bundledWebUI = Path.Combine(AppContext.BaseDirectory, "WebUI");
             string candidateWebUI = Path.Combine(storeDir, "WebUI");
-            if (Directory.Exists(candidateWebUI))
+            if (Directory.Exists(bundledWebUI))
+                webUIRoot = bundledWebUI;
+            else if (Directory.Exists(candidateWebUI))
                 webUIRoot = candidateWebUI;
+
+            if (webUIRoot != null)
+                Logger.Info("Runtime", $"Serving bundled WebUI from {webUIRoot}");
+            else
+                Logger.Warn("Runtime", "No WebUI assets found; serving API only");
 
             HttpServer = new ControllarrHttpServer(
                 httpHost,

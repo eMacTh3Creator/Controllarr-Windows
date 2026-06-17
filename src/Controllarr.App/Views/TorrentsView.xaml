@@ -79,10 +79,27 @@
                         </Button>
                     </StackPanel>
 
+                    <!-- Center: Search box (parity with macOS v2.1.12) -->
+                    <Grid Grid.Column="1" Margin="16,0" MaxWidth="420" HorizontalAlignment="Stretch">
+                        <TextBox Style="{StaticResource SearchTextBox}"
+                                 Text="{Binding TorrentSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Search by name, category, or info-hash"/>
+                        <Button Style="{StaticResource IconButton}"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="0,0,4,0" Padding="4"
+                                Command="{Binding ClearTorrentSearchCommand}"
+                                ToolTip="Clear search"
+                                Visibility="{Binding TorrentSearchText, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                        </Button>
+                    </Grid>
+
                     <!-- Right: Torrent count -->
                     <TextBlock Grid.Column="2"
                                Style="{StaticResource SecondaryText}"
                                VerticalAlignment="Center">
+                        <Run Text="{Binding FilteredTorrents.Count, Mode=OneWay}"/>
+                        <Run Text="of"/>
                         <Run Text="{Binding Torrents.Count, Mode=OneWay}"/>
                         <Run Text="torrents"/>
                     </TextBlock>
@@ -90,7 +107,7 @@
             </Border>
 
             <!-- ══ DataGrid ════════════════════════════════════════ -->
-            <DataGrid ItemsSource="{Binding Torrents}"
+            <DataGrid ItemsSource="{Binding FilteredTorrents}"
                       SelectedItem="{Binding SelectedTorrent, Mode=TwoWay}"
                       Margin="0">
 
@@ -127,7 +144,7 @@
 
                     <!-- Size -->
                     <DataGridTextColumn Header="Size"
-                                        Binding="{Binding TotalWanted, StringFormat='{}{0:N0}'}"
+                                        Binding="{Binding TotalWanted, Converter={StaticResource SizeConverter}}"
                                         Width="90"/>
 
                     <!-- Progress -->
@@ -182,13 +199,13 @@
 
                     <!-- Down Speed -->
                     <DataGridTextColumn Header="Down"
-                                        Binding="{Binding DownloadRate}"
-                                        Width="80"/>
+                                        Binding="{Binding DownloadRate, Converter={StaticResource SpeedConverter}}"
+                                        Width="90"/>
 
                     <!-- Up Speed -->
                     <DataGridTextColumn Header="Up"
-                                        Binding="{Binding UploadRate}"
-                                        Width="80"/>
+                                        Binding="{Binding UploadRate, Converter={StaticResource SpeedConverter}}"
+                                        Width="90"/>
 
                     <!-- Peers -->
                     <DataGridTextColumn Header="Peers"
@@ -207,8 +224,8 @@
 
                     <!-- ETA -->
                     <DataGridTextColumn Header="ETA"
-                                        Binding="{Binding EtaSeconds}"
-                                        Width="70"/>
+                                        Binding="{Binding EtaSeconds, Converter={StaticResource EtaConverter}}"
+                                        Width="80"/>
 
                     <!-- Category -->
                     <DataGridTextColumn Header="Category"

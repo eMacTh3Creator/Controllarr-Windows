@@ -47,6 +47,22 @@ namespace Controllarr.Core.Persistence
         Radarr
     }
 
+    [JsonConverter(typeof(CategoryChangeMoveConverter))]
+    public enum CategoryChangeMove
+    {
+        Ask,
+        Always,
+        Never
+    }
+
+    [JsonConverter(typeof(DuplicateTorrentPolicyConverter))]
+    public enum DuplicateTorrentPolicy
+    {
+        Ignore,
+        MergeTrackers,
+        Ask
+    }
+
     // ────────────────────────────────────────────────────────────────
     // Enum JSON Converters (snake_case string serialization)
     // ────────────────────────────────────────────────────────────────
@@ -169,6 +185,46 @@ namespace Controllarr.Core.Persistence
         }
     }
 
+    public sealed class CategoryChangeMoveConverter : JsonConverter<CategoryChangeMove>
+    {
+        public override CategoryChangeMove Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => reader.GetString() switch
+            {
+                "ask" => CategoryChangeMove.Ask,
+                "always" => CategoryChangeMove.Always,
+                "never" => CategoryChangeMove.Never,
+                _ => CategoryChangeMove.Ask
+            };
+
+        public override void Write(Utf8JsonWriter writer, CategoryChangeMove value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value switch
+            {
+                CategoryChangeMove.Always => "always",
+                CategoryChangeMove.Never => "never",
+                _ => "ask"
+            });
+    }
+
+    public sealed class DuplicateTorrentPolicyConverter : JsonConverter<DuplicateTorrentPolicy>
+    {
+        public override DuplicateTorrentPolicy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => reader.GetString() switch
+            {
+                "ignore" => DuplicateTorrentPolicy.Ignore,
+                "merge_trackers" => DuplicateTorrentPolicy.MergeTrackers,
+                "ask" => DuplicateTorrentPolicy.Ask,
+                _ => DuplicateTorrentPolicy.MergeTrackers
+            };
+
+        public override void Write(Utf8JsonWriter writer, DuplicateTorrentPolicy value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value switch
+            {
+                DuplicateTorrentPolicy.Ignore => "ignore",
+                DuplicateTorrentPolicy.Ask => "ask",
+                _ => "merge_trackers"
+            });
+    }
+
     // ────────────────────────────────────────────────────────────────
     // Data Classes
     // ────────────────────────────────────────────────────────────────
@@ -274,6 +330,88 @@ namespace Controllarr.Core.Persistence
         public ArrEndpoint() { }
     }
 
+    public class PeerDiscovery
+    {
+        [JsonPropertyName("dht_enabled")]
+        public bool DhtEnabled { get; set; } = true;
+
+        [JsonPropertyName("pex_enabled")]
+        public bool PexEnabled { get; set; } = true;
+
+        [JsonPropertyName("lsd_enabled")]
+        public bool LsdEnabled { get; set; } = true;
+
+        public PeerDiscovery() { }
+    }
+
+    public class ConnectionLimits
+    {
+        [JsonPropertyName("global_max_connections")]
+        public int GlobalMaxConnections { get; set; } = 200;
+
+        [JsonPropertyName("max_connections_per_torrent")]
+        public int MaxConnectionsPerTorrent { get; set; } = 60;
+
+        [JsonPropertyName("global_max_upload_slots")]
+        public int GlobalMaxUploadSlots { get; set; } = 20;
+
+        public ConnectionLimits() { }
+    }
+
+    public class TorrentQueueing
+    {
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = false;
+
+        [JsonPropertyName("max_active_downloads")]
+        public int MaxActiveDownloads { get; set; } = 5;
+
+        [JsonPropertyName("max_active_seeds")]
+        public int MaxActiveSeeds { get; set; } = 5;
+
+        [JsonPropertyName("max_active_total")]
+        public int MaxActiveTotal { get; set; } = 10;
+
+        public TorrentQueueing() { }
+    }
+
+    public class WebUISecurity
+    {
+        [JsonPropertyName("clickjacking_protection")]
+        public bool ClickjackingProtection { get; set; } = true;
+
+        [JsonPropertyName("allowlist_enabled")]
+        public bool AllowlistEnabled { get; set; } = false;
+
+        [JsonPropertyName("allowed_cidrs")]
+        public List<string> AllowedCIDRs { get; set; } = new();
+
+        public WebUISecurity() { }
+    }
+
+    public class UiPreferences
+    {
+        [JsonPropertyName("close_to_tray")]
+        public bool CloseToTray { get; set; } = true;
+
+        [JsonPropertyName("start_minimized")]
+        public bool StartMinimized { get; set; } = false;
+
+        [JsonPropertyName("launch_at_startup")]
+        public bool LaunchAtStartup { get; set; } = false;
+
+        [JsonPropertyName("automatic_update_checks")]
+        public bool AutomaticUpdateChecks { get; set; } = true;
+
+        [JsonPropertyName("torrent_status_filter")]
+        public string TorrentStatusFilter { get; set; } = "all";
+
+        [JsonPropertyName("torrent_category_filter")]
+        public string TorrentCategoryFilter { get; set; } = "all";
+
+        public UiPreferences() { }
+    }
+
     public class Settings
     {
         [JsonPropertyName("listen_port_range_start")]
@@ -353,6 +491,37 @@ namespace Controllarr.Core.Persistence
 
         [JsonPropertyName("arr_re_search_after_hours")]
         public int ArrReSearchAfterHours { get; set; } = 6;
+
+        // ── Parity additions (macOS v2.1.x) ─────────────────────────
+
+        /// <summary>
+        /// Preferred forwarded listen port (e.g. the port a VPN provider such
+        /// as PIA hands you). When set, the engine binds it first and the
+        /// port watcher only cycles within the range if it goes stale.
+        /// </summary>
+        [JsonPropertyName("preferred_listen_port")]
+        public ushort? PreferredListenPort { get; set; } = null;
+
+        [JsonPropertyName("peer_discovery")]
+        public PeerDiscovery PeerDiscovery { get; set; } = new();
+
+        [JsonPropertyName("connection_limits")]
+        public ConnectionLimits ConnectionLimits { get; set; } = new();
+
+        [JsonPropertyName("torrent_queueing")]
+        public TorrentQueueing TorrentQueueing { get; set; } = new();
+
+        [JsonPropertyName("web_ui_security")]
+        public WebUISecurity WebUISecurity { get; set; } = new();
+
+        [JsonPropertyName("ui_preferences")]
+        public UiPreferences UiPreferences { get; set; } = new();
+
+        [JsonPropertyName("category_change_move")]
+        public CategoryChangeMove CategoryChangeMove { get; set; } = CategoryChangeMove.Ask;
+
+        [JsonPropertyName("duplicate_torrent_policy")]
+        public DuplicateTorrentPolicy DuplicateTorrentPolicy { get; set; } = DuplicateTorrentPolicy.MergeTrackers;
 
         public Settings() { }
     }

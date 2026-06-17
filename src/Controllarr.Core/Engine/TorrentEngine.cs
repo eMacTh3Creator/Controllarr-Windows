@@ -671,6 +671,38 @@ public sealed class TorrentEngine : IDisposable
         _engine.UpdateSettingsAsync(builder.ToSettings()).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Applies the connection-limit and peer-discovery tuning knobs from
+    /// persisted settings to the live engine. Best-effort: knobs MonoTorrent
+    /// does not expose (e.g. global active-torrent queueing) are persisted in
+    /// settings for the UI/API but are not enforced here.
+    /// </summary>
+    public void ApplyTuning(
+        int globalMaxConnections,
+        bool dhtEnabled,
+        bool localPeerDiscoveryEnabled)
+    {
+        ThrowIfDisposed();
+
+        try
+        {
+            var builder = new EngineSettingsBuilder(_engine.Settings)
+            {
+                MaximumConnections = globalMaxConnections > 0 ? globalMaxConnections : 200,
+                AllowLocalPeerDiscovery = localPeerDiscoveryEnabled,
+                DhtEndPoint = dhtEnabled
+                    ? new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0)
+                    : null,
+            };
+
+            _engine.UpdateSettingsAsync(builder.ToSettings()).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Tuning is best-effort; never let it take the engine down.
+        }
+    }
+
     public async Task ForceReannounceAll()
     {
         foreach (var mgr in _engine.Torrents)

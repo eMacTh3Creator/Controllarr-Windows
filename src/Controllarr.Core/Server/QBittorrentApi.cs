@@ -145,8 +145,8 @@ namespace Controllarr.Core.Server
             {
                 var info = new Dictionary<string, object>
                 {
-                    ["qt"] = "6.5.3",
-                    ["libtorrent"] = "2.0.9.0",
+                    ["qt"] = "6.5.0",
+                    ["libtorrent"] = "2.0.12.0",
                     ["boost"] = "1.83.0",
                     ["openssl"] = "3.1.4",
                     ["zlib"] = "1.3",
@@ -565,6 +565,7 @@ namespace Controllarr.Core.Server
                 string hashStr = form.GetValueOrDefault("hashes", "");
                 string category = form.GetValueOrDefault("category", "");
                 var hashList = ParsePipeSeparatedHashes(hashStr);
+                var settings = store.GetSettings();
 
                 foreach (string hash in hashList)
                 {
@@ -572,6 +573,24 @@ namespace Controllarr.Core.Server
                         store.NoteCategoryForHash(hash, null);
                     else
                         store.NoteCategoryForHash(hash, category);
+
+                    // Honor the category-change move policy (parity with macOS).
+                    // "Always" relocates the torrent to the new category's save
+                    // path; "Ask"/"Never" leave files in place for headless/API
+                    // callers (the native UI can prompt for "Ask").
+                    if (settings.CategoryChangeMove == CategoryChangeMove.Always &&
+                        !string.IsNullOrEmpty(category))
+                    {
+                        string? dest = store.GetSavePath(category);
+                        if (!string.IsNullOrEmpty(dest))
+                        {
+                            try { await engine.Move(hash, dest); }
+                            catch (Exception ex)
+                            {
+                                logger.Warn("API", $"Category move failed for {hash[..Math.Min(8, hash.Length)]}...: {ex.Message}");
+                            }
+                        }
+                    }
                 }
                 return Results.Ok();
             });
@@ -1074,19 +1093,19 @@ namespace Controllarr.Core.Server
                 ["max_seeding_time_enabled"] = s.GlobalMaxSeedingTimeMinutes.HasValue,
                 ["max_seeding_time"] = s.GlobalMaxSeedingTimeMinutes ?? -1,
                 ["max_ratio_act"] = (int)s.SeedLimitAction,
-                ["dht"] = true,
-                ["pex"] = true,
-                ["lsd"] = true,
+                ["dht"] = s.PeerDiscovery.DhtEnabled,
+                ["pex"] = s.PeerDiscovery.PexEnabled,
+                ["lsd"] = s.PeerDiscovery.LsdEnabled,
                 ["encryption"] = 0,
                 ["web_ui_address"] = s.WebUIHost,
                 ["web_ui_port"] = s.WebUIPort,
                 ["web_ui_username"] = s.WebUIUsername,
                 ["alternative_webui_enabled"] = false,
                 ["alternative_webui_path"] = "",
-                ["queueing_enabled"] = false,
-                ["max_active_downloads"] = -1,
-                ["max_active_uploads"] = -1,
-                ["max_active_torrents"] = -1,
+                ["queueing_enabled"] = s.TorrentQueueing.Enabled,
+                ["max_active_downloads"] = s.TorrentQueueing.Enabled ? s.TorrentQueueing.MaxActiveDownloads : -1,
+                ["max_active_uploads"] = s.TorrentQueueing.Enabled ? s.TorrentQueueing.MaxActiveSeeds : -1,
+                ["max_active_torrents"] = s.TorrentQueueing.Enabled ? s.TorrentQueueing.MaxActiveTotal : -1,
                 ["auto_tmm_enabled"] = true,
                 ["torrent_changed_tmm_enabled"] = false,
                 ["add_trackers_enabled"] = false,
