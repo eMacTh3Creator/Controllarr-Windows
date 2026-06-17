@@ -13,13 +13,62 @@
         <!-- ── System tray icon ─────────────────────────────────── -->
         <tb:TaskbarIcon x:Name="TrayIcon"
                         IconSource="/Assets/controllarr.ico"
-                        ToolTipText="Controllarr"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
+
+            <!-- Live qBittorrent-style hover tooltip. Bindings resolve against
+                 TrayIcon.DataContext (= MainViewModel, set in code-behind); the
+                 2s poll loop raises PropertyChanged, so it updates while hovered. -->
+            <tb:TaskbarIcon.TrayToolTip>
+                <Border Background="#FF11161F"
+                        BorderBrush="#FF2A3340"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,10">
+                    <StackPanel MinWidth="200">
+                        <TextBlock Text="Controllarr" Foreground="White"
+                                   FontWeight="Bold" Margin="0,0,0,6"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x2193;&#x2009;" Foreground="#FF7CD992"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Foreground="#FF7CD992"
+                                       FontFamily="Consolas" Text="{Binding DownloadSpeedFormatted}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x2191;&#x2009;" Foreground="#FF7CB7FF"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="#FF7CB7FF"
+                                       FontFamily="Consolas" Text="{Binding UploadSpeedFormatted}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Torrents&#x2009;" Foreground="#FFB9C2CF" Margin="0,4,8,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Foreground="#FFE6EAF0" Margin="0,4,0,0"
+                                       Text="{Binding TrayTorrentSummary}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Port&#x2009;" Foreground="#FFB9C2CF"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Foreground="#FFE6EAF0"
+                                       Text="{Binding TrayListenPort}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Status&#x2009;" Foreground="#FFB9C2CF"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Foreground="#FFE6EAF0"
+                                       Text="{Binding TrayStatusLine}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </tb:TaskbarIcon.TrayToolTip>
+
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="Show Controllarr" Click="TrayShow_Click" FontWeight="Bold"/>
-                    <MenuItem Header="Open Web UI in Browser" Command="{Binding OpenWebUICommand}"/>
-                    <MenuItem Header="Check for Updates…" Command="{Binding CheckForUpdatesCommand}"/>
+                    <MenuItem Header="Open Web UI in Browser" Click="TrayOpenWebUI_Click"/>
+                    <MenuItem Header="Check for Updates…" Click="TrayCheckForUpdates_Click"/>
                     <Separator/>
                     <MenuItem Header="Exit" Click="TrayExit_Click"/>
                 </ContextMenu>

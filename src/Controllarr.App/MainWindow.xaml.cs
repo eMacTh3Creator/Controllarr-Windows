@@ -11,7 +11,7 @@ namespace Controllarr.App
 {
     public partial class MainWindow : Window
     {
-        private bool _isReallyClosing;
+        private bool _shutdownStarted;
         private readonly MainViewModel _viewModel;
 
         public MainWindow()
@@ -20,6 +20,11 @@ namespace Controllarr.App
 
             _viewModel = new MainViewModel();
             DataContext = _viewModel;
+
+            // Hardcodet forwards the TaskbarIcon's OWN DataContext into the
+            // TrayToolTip (it does NOT inherit the Window's), so set it here for
+            // the live hover-tooltip bindings to resolve.
+            TrayIcon.DataContext = _viewModel;
 
             // Dark default so there is no white flash before the page paints.
             WebHost.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 10, 14, 20);
@@ -92,47 +97,85 @@ namespace Controllarr.App
         }
 
         // ────────────────────────────────────────────────────────────
-        // Window lifecycle / tray
+        // Tray menu handlers (Click-based — no DataContext dependency)
         // ────────────────────────────────────────────────────────────
-
-        private async void OnWindowClosing(object? sender, CancelEventArgs e)
-        {
-            if (!_isReallyClosing)
-            {
-                // Minimize to tray instead of closing.
-                e.Cancel = true;
-                Hide();
-                return;
-            }
-
-            // Real close — shut down the engine + server.
-            await _viewModel.ShutdownAsync();
-
-            TrayIcon?.Dispose();
-        }
 
         private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e) => RestoreFromTray();
 
         private void TrayShow_Click(object sender, RoutedEventArgs e) => RestoreFromTray();
 
-        private void TrayExit_Click(object sender, RoutedEventArgs e)
+        private void TrayOpenWebUI_Click(object sender, RoutedEventArgs e)
         {
-            _isReallyClosing = true;
-            Close();
+            if (_viewModel.OpenWebUICommand.CanExecute(null))
+                _viewModel.OpenWebUICommand.Execute(null);
         }
 
-        /// <summary>Fully exit the app (used by the Web UI "Shut down" button).</summary>
-        public void ShutdownFromUi()
+        private void TrayCheckForUpdates_Click(object sender, RoutedEventArgs e)
         {
-            _isReallyClosing = true;
-            Close();
+            if (_viewModel.CheckForUpdatesCommand.CanExecute(null))
+                _viewModel.CheckForUpdatesCommand.Execute(null);
         }
+
+        private void TrayExit_Click(object sender, RoutedEventArgs e) => BeginShutdown();
+
+        /// <summary>Fully exit the app (used by the Web UI "Shut down" button).</summary>
+        public void ShutdownFromUi() => BeginShutdown();
 
         private void RestoreFromTray()
         {
             Show();
             WindowState = WindowState.Normal;
             Activate();
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // Window close / shutdown
+        // ────────────────────────────────────────────────────────────
+
+        // Window 'X' / minimize-close: hide to tray instead of exiting, unless
+        // a real shutdown is already running via BeginShutdown().
+        private void OnWindowClosing(object? sender, CancelEventArgs e)
+        {
+            if (!_shutdownStarted)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        }
+
+        // Single, reliable exit path: re-entrancy guard, await engine/server
+        // shutdown, dispose the tray icon, then Application.Shutdown(). A
+        // watchdog guarantees the process dies even if a thread lingers.
+        private async void BeginShutdown()
+        {
+            if (_shutdownStarted) return;
+            _shutdownStarted = true;
+
+            ArmExitWatchdog(TimeSpan.FromSeconds(8));
+
+            try
+            {
+                await _viewModel.ShutdownAsync();
+            }
+            catch
+            {
+                // Best-effort; we are exiting regardless.
+            }
+
+            try { TrayIcon?.Dispose(); } catch { }
+
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        private static void ArmExitWatchdog(TimeSpan timeout)
+        {
+            var t = new System.Threading.Thread(() =>
+            {
+                System.Threading.Thread.Sleep(timeout);
+                Environment.Exit(0); // last-resort hard kill if graceful exit stalls
+            })
+            { IsBackground = true, Name = "ExitWatchdog" };
+            t.Start();
         }
     }
 }

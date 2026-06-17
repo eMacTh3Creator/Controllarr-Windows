@@ -184,6 +184,16 @@ namespace Controllarr.App.ViewModels
         public bool HasIncomingConnections => SessionStats?.HasIncomingConnections ?? false;
         public string IncomingStatusText => HasIncomingConnections ? "Incoming OK" : "No Incoming";
 
+        // ── Tray tooltip display helpers (live, poll-updated) ──────
+        public string TrayTorrentSummary =>
+            $"{TorrentCount} total • {DownloadingCount} dl • {SeedingCount} seed";
+
+        public string TrayListenPort =>
+            (SessionStats?.ListenPort ?? 0) == 0 ? "—" : SessionStats!.ListenPort.ToString();
+
+        public string TrayStatusLine =>
+            $"{VpnStatusText} • {DiskStatusText}";
+
         public string DownloadSpeedFormatted =>
             FormatSpeed(SessionStats?.DownloadRate ?? 0);
 
@@ -1230,6 +1240,11 @@ namespace Controllarr.App.ViewModels
                 VpnStatus = vpnStatus;
                 OnPropertyChanged(nameof(VpnConnected));
                 OnPropertyChanged(nameof(VpnStatusText));
+
+                // Tray hover tooltip (depends on counts, session stats, VPN + disk)
+                OnPropertyChanged(nameof(TrayTorrentSummary));
+                OnPropertyChanged(nameof(TrayListenPort));
+                OnPropertyChanged(nameof(TrayStatusLine));
             });
         }
 
