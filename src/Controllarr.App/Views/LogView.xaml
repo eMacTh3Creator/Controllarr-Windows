@@ -38,6 +38,20 @@
                              Style="{StaticResource SearchTextBox}"
                              Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"/>
 
+                    <!-- Reveal persistent log file (parity with macOS v2.1.15) -->
+                    <Button Grid.Column="3"
+                            Style="{StaticResource SubtleButton}"
+                            HorizontalAlignment="Right" Margin="16,0"
+                            Command="{Binding RevealLogFileCommand}"
+                            IsEnabled="{Binding HasLogFile}"
+                            ToolTip="{Binding LogFilePath}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE838;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Reveal Log File" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- Entry count -->
                     <TextBlock Grid.Column="4"
                                Style="{StaticResource SecondaryText}"

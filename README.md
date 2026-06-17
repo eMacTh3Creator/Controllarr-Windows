@@ -17,7 +17,7 @@
 
 Controllarr for Windows is a full native port of the [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr) BitTorrent client. It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) as its torrent engine and wraps it in a WPF desktop app with a modern Windows 11-style dark theme. It speaks the qBittorrent Web API so existing *arr apps can point at it with zero extra configuration.
 
-**Status:** v1.2.0 — production-ready `.exe` with native WPF UI, qBittorrent Web API compatibility, post-processing pipeline, seeding policy, health monitoring, bandwidth scheduler, per-torrent file/tracker/peer detail, DPAPI credential storage, disk-space-aware auto-pause, *arr re-search integration, VPN-aware kill switch with interface binding, recovery center with rule chaining, and backup/restore. See [Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) for a pre-built binary.
+**Status:** v2.1.15 (aligned 1:1 with [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr) v2.1.15) — production-ready self-contained `.exe` with native WPF UI, a bundled no-build static Web UI served at `:8791`, qBittorrent Web API compatibility, a native Home dashboard, post-processing pipeline, seeding policy, health monitoring, bandwidth scheduler, per-torrent file/tracker/peer detail, a persistent crash-surviving on-disk log, DPAPI credential storage, disk-space-aware auto-pause, *arr re-search integration, VPN-aware kill switch with interface binding, recovery center with rule chaining, GitHub-release update check, and backup/restore. See [Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) for a pre-built binary.
 
 ## Download
 
@@ -35,16 +35,21 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 
 - **Automatic listen-port reselection** when the forwarded port goes offline (the #1 reason this project exists)
 - **qBittorrent Web API v2** compatibility — Sonarr / Radarr / Overseerr work without custom integration
-- **Native Windows UI** with sidebar navigation: Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, *arr, Log
+- **Bundled browser Web UI** — a no-build static SPA served by the embedded server at <http://127.0.0.1:8791> with a dark Windows 11-style theme, login, and tabs for Home / Torrents / Categories / Settings / Health / Recovery / Post-Processor / Seeding / Log (with per-torrent Files / Trackers / Peers detail)
+- **Native Windows UI** with sidebar navigation: Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, *arr, Log
+- **Native Home dashboard** (default tab) — session metric cards, status pills, quick actions, and a most-active-transfers list
+- **Torrents search box** — filter the torrent list by name, category, or info-hash, with one-click clear
 - **Modern dark theme** — Windows 11-style Fluent Design with glass-morphism effects
 - **Per-torrent detail** — file picker (skip/enable individual files), tracker status, live peer list
+- **Persistent crash-surviving log** — the runtime log is mirrored to `%AppData%\Controllarr\logs\controllarr.log`, fsync'd on warnings/errors and every few lines (~5 MB rotation keeping one `.1` backup) so it survives an app crash or reboot; a **Reveal Log File** action opens it in Explorer
+- **GitHub-release update check** — a "Check for Updates" action plus a settings toggle query the GitHub Releases API and open the latest release page (replaces the macOS Sparkle updater)
 - **Category-based save paths** and post-complete move rules for Plex library handoff
 - **Archive extractor** (.rar / .zip / .7z) via SharpCompress
 - **Dangerous-file filter** per category with blocked extension lists
 - **Seeding policy** — per-category or global max ratio / max seed time with hit-and-run protection
 - **Health monitoring** — stall detection with reason codes, auto-reannounce recovery
 - **Bandwidth scheduler** — time-of-day download/upload rate limiting
-- **DPAPI credential storage** for the WebUI password and *arr API keys (Windows Data Protection API)
+- **DPAPI credential storage** for the WebUI/API password (Windows Data Protection API); *arr API keys are stored in the app-state file (`%AppData%\Controllarr\state.json`)
 - **VPN kill switch** — detects TAP-Windows, WireGuard, and Wintun VPN adapters and pauses all torrents instantly when the VPN drops; auto-resumes on reconnect
 - **VPN interface binding** — binds MonoTorrent's outgoing and listen interfaces to the VPN adapter so torrent traffic never leaks through the default route
 - **Disk-space-aware auto-pause** — monitors free space, pauses downloads when below threshold, and exposes operator recheck in the UI
@@ -61,11 +66,12 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 
 ## UI Overview
 
-### Sidebar Navigation (9 tabs)
+### Sidebar Navigation (10 tabs)
 
 | Tab | Description |
 |-----|-------------|
-| **Torrents** | Main torrent list with progress bars, speeds, context menu actions, add magnet/file |
+| **Home** | Default dashboard — session metric cards, status pills, quick actions, and a most-active-transfers list |
+| **Torrents** | Main torrent list with a search box (name / category / info-hash) and clear, progress bars, speeds, context menu actions, add magnet/file |
 | **Categories** | Category editor — save path, complete path, archive extraction, blocked extensions, ratio/time overrides |
 | **Settings** | Full settings form — WebUI, port range, seeding policy, health, VPN, disk space, *arr, bandwidth, recovery rules, backup/restore |
 | **Health** | Stall detection dashboard — reason classification, duration tracking, clear/recover actions |
@@ -73,7 +79,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 | **Post-Processor** | Post-completion pipeline status — move/extract stages, retry failed operations |
 | **Seeding** | Seeding enforcement log — ratio/time limit actions with hit-and-run protection |
 | ***arr** | Sonarr/Radarr re-search notification log |
-| **Log** | Filterable log viewer with level coloring (Debug/Info/Warn/Error) |
+| **Log** | Filterable log viewer with level coloring (Debug/Info/Warn/Error) and a Reveal Log File action that opens the on-disk log in Explorer |
 
 ### Status Bar
 
@@ -83,6 +89,12 @@ The top status bar displays:
 - Download / upload speeds (live)
 - VPN status pill (Connected / Disconnected / Kill Switch Engaged)
 - Disk pressure indicator
+
+---
+
+## Web UI
+
+In addition to the native WPF app, Controllarr ships a bundled browser Web UI — a no-build static SPA served directly by the embedded server. Open <http://127.0.0.1:8791> in any browser and log in with the default credentials `admin` / `adminadmin`. It carries the same dark Windows 11-style theme and exposes Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs, including per-torrent Files / Trackers / Peers detail. The WebUI assets ship beside `Controllarr.exe`, so there is nothing to build or install separately.
 
 ---
 
@@ -254,14 +266,14 @@ Controllarr-Windows/
 | **Credential storage** | macOS Keychain | Windows DPAPI |
 | **Archive extraction** | macOS bsdtar | SharpCompress (.NET) |
 | **VPN detection** | `getifaddrs()` for utun interfaces | `NetworkInterface` for TAP/WireGuard/Wintun |
-| **Auto-update** | Sparkle | — (planned) |
-| **Web UI** | Bundled React SPA | — (API-compatible, use browser) |
+| **Auto-update** | Sparkle | GitHub Releases update check |
+| **Web UI** | Bundled React SPA | Bundled no-build static SPA (served at :8791) |
 
 ---
 
 ## Build from Source
 
-Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later.
+Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later. We stay on the `net8.0-windows` LTS target framework. The repo ships a `NuGet.config` pointing at [nuget.org](https://www.nuget.org/), so a fresh clone restores all dependencies (MonoTorrent, SharpCompress, ASP.NET Core) without any extra feed configuration.
 
 ```bash
 git clone https://github.com/eMacTh3Creator/Controllarr-Windows.git
@@ -271,12 +283,12 @@ cd Controllarr-Windows
 dotnet build
 
 # Release build (self-contained single-file .exe)
-dotnet publish src/Controllarr.App -c Release -r win-x64 --self-contained true \
+dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true -o publish
+  -p:EnableCompressionInSingleFile=true -o publish/win-x64
 ```
 
-The resulting `publish/Controllarr.exe` is a fully self-contained executable — no .NET runtime installation required.
+The resulting `publish/win-x64/Controllarr.exe` is a fully self-contained executable — no .NET runtime installation required. The bundled Web UI assets ship beside the `.exe` in the same output folder.
 
 ### Open in Visual Studio
 
@@ -312,6 +324,19 @@ This ensures torrent traffic **never leaks** through your default network interf
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/README.md](docs/README.md) | Documentation index and overview |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Day-to-day operations, deployment, and troubleshooting guide |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Performance tuning and large-library guidance |
+| [docs/V1_5_ROADMAP.md](docs/V1_5_ROADMAP.md) | Roadmap and feature planning |
+| [docs/index.html](docs/index.html) | Project landing page |
+| [Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) | Pre-built binaries and release notes |
+
+---
+
 ## License
 
-[MIT](LICENSE) — Controllarr is original work. It reimplements qBittorrent-compatible behavior from public specs; no GPL-licensed qBittorrent source is included or referenced during development.
+[MIT](LICENSE) — Controllarr is original work. It reimplements qBittorrent-compatible behavior from public specs; no GPL-licensed qBittorrent source is included or referenced during development. On Windows, the WebUI/API password is encrypted at rest with the Windows Data Protection API (DPAPI); *arr API keys are stored in the app-state file.

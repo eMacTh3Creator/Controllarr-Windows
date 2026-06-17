@@ -1,0 +1,218 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ════════════════════════════════════════════════════════════
+         HOME DASHBOARD (parity with macOS Controllarr v2.1.12)
+         ════════════════════════════════════════════════════════════ -->
+
+    <DataTemplate x:Key="HomeViewTemplate">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20">
+            <StackPanel>
+
+                <!-- ── Hero header ─────────────────────────────────── -->
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,20">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Controllarr" Style="{StaticResource HeaderText}"
+                                           FontSize="26" VerticalAlignment="Center"/>
+                                <Border Background="{StaticResource AccentBrush}"
+                                        CornerRadius="10" Padding="8,2" Margin="12,2,0,0"
+                                        VerticalAlignment="Center">
+                                    <TextBlock VerticalAlignment="Center" FontSize="11"
+                                               Foreground="White">
+                                        <Run Text="v"/><Run Text="{Binding AppVersion, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Torrent control center for Sonarr / Radarr / Overseerr / Plex."
+                                       Style="{StaticResource SecondaryText}" Margin="0,6,0,0"/>
+                        </StackPanel>
+
+                        <!-- Connection status pill -->
+                        <Border Grid.Column="1" Style="{StaticResource StatusPill}"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"
+                                         Fill="{StaticResource StatusGreenBrush}"/>
+                                <TextBlock Text="Running" FontSize="12"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ── Update-available banner ─────────────────────── -->
+                <Border Margin="0,0,0,20" CornerRadius="8" Padding="16,12"
+                        Background="{StaticResource SurfaceLightBrush}"
+                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
+                        Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextBrush}"
+                                   Text="{Binding UpdateStatusText}"/>
+                        <Button Grid.Column="1" Style="{StaticResource AccentButton}"
+                                Content="Get Update"
+                                Command="{Binding CheckForUpdatesCommand}"/>
+                    </Grid>
+                </Border>
+
+                <!-- ── Session metric cards ────────────────────────── -->
+                <TextBlock Text="Session" Style="{StaticResource SubheaderText}" Margin="2,0,0,10"/>
+                <WrapPanel Margin="0,0,0,20">
+                    <WrapPanel.Resources>
+                        <Style TargetType="Border" BasedOn="{StaticResource CardBorder}">
+                            <Setter Property="Width" Value="170"/>
+                            <Setter Property="Margin" Value="0,0,12,12"/>
+                        </Style>
+                    </WrapPanel.Resources>
+
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="DOWNLOAD" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding DownloadSpeedFormatted}" FontSize="20"
+                                       FontFamily="{StaticResource MonoFontFamily}"
+                                       Foreground="{StaticResource SuccessBrush}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="UPLOAD" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding UploadSpeedFormatted}" FontSize="20"
+                                       FontFamily="{StaticResource MonoFontFamily}"
+                                       Foreground="{StaticResource AccentLightBrush}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="TORRENTS" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding TorrentCount}" FontSize="20" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="DOWNLOADING" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding DownloadingCount}" FontSize="20" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="SEEDING" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding SeedingCount}" FontSize="20" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="PAUSED" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding PausedCount}" FontSize="20" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="HEALTH ISSUES" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding HealthIssueCount}" FontSize="20" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border>
+                        <StackPanel>
+                            <TextBlock Text="LISTEN PORT" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <TextBlock Text="{Binding SessionStats.ListenPort}" FontSize="20"
+                                       FontFamily="{StaticResource MonoFontFamily}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
+
+                <!-- ── Status chips ────────────────────────────────── -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Border Style="{StaticResource StatusPill}" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding IncomingStatusText}" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Border>
+                    <Border Style="{StaticResource StatusPill}" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding VpnStatusText}" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Border>
+                    <Border Style="{StaticResource StatusPill}" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding DiskStatusText}" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- ── Quick actions ───────────────────────────────── -->
+                <TextBlock Text="Quick Actions" Style="{StaticResource SubheaderText}" Margin="2,0,0,10"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Button Style="{StaticResource AccentButton}" Content="All Torrents" Margin="0,0,8,0"
+                            Command="{Binding SelectTabCommand}" CommandParameter="Torrents"/>
+                    <Button Style="{StaticResource SubtleButton}" Content="Open Web UI" Margin="0,0,8,0"
+                            Command="{Binding OpenWebUICommand}"/>
+                    <Button Style="{StaticResource SubtleButton}" Content="Review Health" Margin="0,0,8,0"
+                            Command="{Binding SelectTabCommand}" CommandParameter="Health"/>
+                    <Button Style="{StaticResource SubtleButton}" Content="Check for Updates"
+                            Command="{Binding CheckForUpdatesCommand}"/>
+                </StackPanel>
+
+                <!-- ── Most active transfers ───────────────────────── -->
+                <TextBlock Text="Most Active" Style="{StaticResource SubheaderText}" Margin="2,0,0,10"/>
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding TopTorrents}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                            <ProgressBar Height="4" Margin="0,4,0,0"
+                                                         Minimum="0" Maximum="100"
+                                                         Value="{Binding Progress, Converter={StaticResource ProgressPercentConverter}, Mode=OneWay}"
+                                                         Style="{StaticResource TorrentProgressBar}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFontFamily}" FontSize="11"
+                                                   Foreground="{StaticResource SuccessBrush}">
+                                            <Run Text="&#x2193; "/><Run Text="{Binding DownloadRate, Converter={StaticResource SpeedConverter}, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFontFamily}" FontSize="11"
+                                                   Foreground="{StaticResource AccentLightBrush}">
+                                            <Run Text="&#x2191; "/><Run Text="{Binding UploadRate, Converter={StaticResource SpeedConverter}, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="No active transfers.">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource MutedText}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TopTorrents.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DataTemplate>
+
+</ResourceDictionary>

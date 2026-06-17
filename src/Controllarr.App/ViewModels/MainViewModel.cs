@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.Input;
 
 using Controllarr.Core.Engine;
 using Controllarr.Core.Persistence;
+using Controllarr.Core.Server;
 using Controllarr.Core.Services;
 
 namespace Controllarr.App.ViewModels
@@ -57,6 +58,10 @@ namespace Controllarr.App.ViewModels
         private SeedingPolicy? _seedingPolicy;
         private VPNMonitor? _vpnMonitor;
         private DiskSpaceMonitor? _diskSpaceMonitor;
+        private RecoveryCenter? _recoveryCenter;
+        private ArrNotifier? _arrNotifier;
+        private PortWatcher? _portWatcher;
+        private ControllarrHttpServer? _httpServer;
         private Logger _logger = Logger.Instance;
         private CancellationTokenSource? _pollCts;
 
@@ -75,13 +80,19 @@ namespace Controllarr.App.ViewModels
         private string? _bootError;
 
         [ObservableProperty]
-        private string _selectedTab = "Torrents";
+        private string _selectedTab = "Home";
 
         [ObservableProperty]
-        private bool _isTabSelected_Torrents = true;
+        private bool _isTabSelected_Home = true;
+
+        [ObservableProperty]
+        private bool _isTabSelected_Torrents;
 
         [ObservableProperty]
         private ObservableCollection<TorrentStats> _torrents = new();
+
+        [ObservableProperty]
+        private TorrentStats? _selectedTorrent;
 
         [ObservableProperty]
         private SessionStats _sessionStats = new();
@@ -137,7 +148,41 @@ namespace Controllarr.App.ViewModels
         [ObservableProperty]
         private bool _launchAtStartup;
 
+        // ── Torrents search/filter (parity with macOS v2.1.12) ─────
+        [ObservableProperty]
+        private string _torrentSearchText = string.Empty;
+
+        [ObservableProperty]
+        private ObservableCollection<TorrentStats> _filteredTorrents = new();
+
+        // ── Home dashboard (parity with macOS v2.1.12) ─────────────
+        [ObservableProperty]
+        private ObservableCollection<TorrentStats> _topTorrents = new();
+
+        // ── Update check (GitHub Releases; replaces macOS Sparkle) ─
+        [ObservableProperty]
+        private string _updateStatusText = string.Empty;
+
+        [ObservableProperty]
+        private bool _updateAvailable;
+
+        private readonly UpdateChecker _updateChecker = new();
+        private bool _autoUpdateChecked;
+
+        partial void OnTorrentSearchTextChanged(string value) => ApplyTorrentFilter();
+
         // ── Computed display properties ────────────────────────────
+
+        /// <summary>App version for the Home hero capsule (e.g. "2.1.15").</summary>
+        public string AppVersion => UpdateChecker.CurrentVersion;
+
+        public int TorrentCount => Torrents?.Count ?? 0;
+        public int DownloadingCount => Torrents?.Count(t => t.State == TorrentState.Downloading || t.State == TorrentState.DownloadingMetadata) ?? 0;
+        public int SeedingCount => Torrents?.Count(t => t.State == TorrentState.Seeding) ?? 0;
+        public int PausedCount => Torrents?.Count(t => t.Paused) ?? 0;
+        public int HealthIssueCount => HealthIssues?.Count ?? 0;
+        public bool HasIncomingConnections => SessionStats?.HasIncomingConnections ?? false;
+        public string IncomingStatusText => HasIncomingConnections ? "Incoming OK" : "No Incoming";
 
         public string DownloadSpeedFormatted =>
             FormatSpeed(SessionStats?.DownloadRate ?? 0);
@@ -407,6 +452,129 @@ namespace Controllarr.App.ViewModels
             {
                 _logger.Error("UI", $"Failed to open WebUI: {ex.Message}");
             }
+        }
+
+        // ── Persistent log: Reveal Log File (parity with macOS v2.1.15) ──
+
+        /// <summary>Absolute path of the on-disk log, or null if persistence is off.</summary>
+        public string? LogFilePath => _logger.LogFilePath;
+        public bool HasLogFile => !string.IsNullOrEmpty(_logger.LogFilePath);
+
+        [RelayCommand]
+        private void RevealLogFile()
+        {
+            string? path = _logger.LogFilePath;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                MessageBox.Show("No on-disk log file is available yet.",
+                    "Controllarr", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                // Open Explorer with the log file selected.
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("UI", $"Failed to reveal log file: {ex.Message}");
+            }
+        }
+
+        // ── Torrents search/filter ─────────────────────────────────
+
+        [RelayCommand]
+        private void ClearTorrentSearch() => TorrentSearchText = string.Empty;
+
+        private void ApplyTorrentFilter()
+        {
+            var source = Torrents ?? new ObservableCollection<TorrentStats>();
+            string q = (TorrentSearchText ?? string.Empty).Trim();
+
+            IEnumerable<TorrentStats> result = source;
+            if (q.Length > 0)
+            {
+                result = source.Where(t =>
+                    (t.Name?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (t.Category?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (t.InfoHash?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            FilteredTorrents = new ObservableCollection<TorrentStats>(result);
+        }
+
+        // ── Update check (GitHub Releases) ─────────────────────────
+
+        [RelayCommand]
+        private async Task CheckForUpdates()
+        {
+            UpdateStatusText = "Checking for updates...";
+            var result = await _updateChecker.CheckAsync();
+
+            if (result.Error != null)
+            {
+                UpdateStatusText = $"Update check failed: {result.Error}";
+                _logger.Warn("Update", UpdateStatusText);
+                return;
+            }
+
+            UpdateAvailable = result.UpdateAvailable;
+            if (result.UpdateAvailable)
+            {
+                UpdateStatusText = $"Update available: v{result.LatestVersion} (current v{result.CurrentVersion})";
+                _logger.Info("Update", UpdateStatusText);
+
+                var choice = MessageBox.Show(
+                    $"A new version is available.\n\nCurrent: v{result.CurrentVersion}\nLatest: v{result.LatestVersion}\n\nOpen the download page?",
+                    "Controllarr Update", MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+                if (choice == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(result.ReleaseUrl) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("Update", $"Failed to open release page: {ex.Message}");
+                    }
+                }
+            }
+            else
+            {
+                UpdateStatusText = $"You're up to date (v{result.CurrentVersion}).";
+                _logger.Info("Update", UpdateStatusText);
+            }
+        }
+
+        private void MaybeAutoCheckForUpdates()
+        {
+            if (_autoUpdateChecked) return;
+            _autoUpdateChecked = true;
+
+            if (!(Settings?.UiPreferences?.AutomaticUpdateChecks ?? true)) return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await _updateChecker.CheckAsync();
+                    if (result.UpdateAvailable && result.Error == null)
+                    {
+                        Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            UpdateAvailable = true;
+                            UpdateStatusText = $"Update available: v{result.LatestVersion}";
+                        });
+                        _logger.Info("Update", $"Update available: v{result.LatestVersion} (current v{result.CurrentVersion})");
+                    }
+                }
+                catch { /* best effort */ }
+            });
         }
 
         [RelayCommand]
@@ -699,12 +867,23 @@ namespace Controllarr.App.ViewModels
                 _store = new PersistenceStore();
                 var initialSettings = _store.GetSettings();
 
+                // Enable the persistent crash-surviving on-disk log (v2.1.15).
+                _logger.ConfigureFile(Path.Combine(_store.Directory, "logs", "controllarr.log"));
+
                 // Create torrent engine
-                ushort port = _store.Snapshot().LastKnownGoodPort ?? initialSettings.ListenPortRangeStart;
+                ushort port = _store.Snapshot().LastKnownGoodPort
+                              ?? initialSettings.PreferredListenPort
+                              ?? initialSettings.ListenPortRangeStart;
                 _engine = new TorrentEngine(
                     initialSettings.DefaultSavePath,
                     _store.ResumeDirectory,
                     port);
+
+                // Apply connection-limit / peer-discovery tuning.
+                _engine.ApplyTuning(
+                    initialSettings.ConnectionLimits.GlobalMaxConnections,
+                    initialSettings.PeerDiscovery.DhtEnabled,
+                    initialSettings.PeerDiscovery.LsdEnabled);
 
                 // Restore category map
                 var catMap = _store.Snapshot().CategoryByHash;
@@ -752,6 +931,51 @@ namespace Controllarr.App.ViewModels
                 if (initialSettings.DiskSpaceMinimumGB.HasValue)
                     _diskSpaceMonitor.Start();
 
+                // ── Recovery + *arr services (consumed by the API/WebUI) ──
+                _recoveryCenter = new RecoveryCenter(_logger);
+                _arrNotifier = new ArrNotifier(() => _engine.SnapshotCategories(), logger: _logger);
+
+                // ── Port watcher: automatic listen-port cycling on stall ──
+                _portWatcher = new PortWatcher(_engine, _store, _logger);
+                _portWatcher.Start();
+
+                // ── Embedded HTTP server: qBittorrent API + Controllarr API + bundled WebUI ──
+                string? webUIRoot = null;
+                string bundledWebUI = Path.Combine(AppContext.BaseDirectory, "WebUI");
+                string extractedWebUI = Path.Combine(_store.Directory, "WebUI");
+                if (Directory.Exists(bundledWebUI) && File.Exists(Path.Combine(bundledWebUI, "index.html")))
+                {
+                    // Loose dev assets shipped next to the executable.
+                    webUIRoot = bundledWebUI;
+                }
+                else if (ExtractEmbeddedWebUI(extractedWebUI))
+                {
+                    // Single-file build: assets are embedded in the exe and
+                    // extracted to %AppData%\Controllarr\WebUI on boot.
+                    webUIRoot = extractedWebUI;
+                }
+
+                _httpServer = new ControllarrHttpServer(
+                    initialSettings.WebUIHost,
+                    initialSettings.WebUIPort,
+                    _engine, _store, _logger,
+                    _postProcessor, _seedingPolicy, _healthMonitor,
+                    _recoveryCenter, _diskSpaceMonitor, _vpnMonitor, _arrNotifier,
+                    () => _portWatcher!.ForceCycle("Manual cycle via API"),
+                    webUIRoot);
+
+                try
+                {
+                    await _httpServer.StartAsync();
+                    _logger.Info("Boot",
+                        $"Web UI + API listening on http://{initialSettings.WebUIHost}:{initialSettings.WebUIPort}");
+                }
+                catch (Exception ex)
+                {
+                    // A port conflict should not take the whole app down.
+                    _logger.Error("Boot", $"HTTP server failed to start: {ex.Message}");
+                }
+
                 // Register with App
                 if (Application.Current is App app)
                 {
@@ -783,6 +1007,9 @@ namespace Controllarr.App.ViewModels
 
                 // Start polling loop
                 StartPolling();
+
+                // Optional automatic update check (GitHub Releases).
+                MaybeAutoCheckForUpdates();
             }
             catch (Exception ex)
             {
@@ -794,6 +1021,14 @@ namespace Controllarr.App.ViewModels
         public async Task ShutdownAsync()
         {
             _pollCts?.Cancel();
+
+            // Stop the HTTP server + port watcher first so no request races shutdown.
+            if (_httpServer != null)
+            {
+                try { await _httpServer.StopAsync(); } catch { /* best effort */ }
+            }
+            _portWatcher?.Stop();
+            _portWatcher?.Dispose();
 
             if (_engine != null)
             {
@@ -811,6 +1046,49 @@ namespace Controllarr.App.ViewModels
             _vpnMonitor?.Dispose();
             _diskSpaceMonitor?.Dispose();
             _store?.Dispose();
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // Embedded WebUI extraction
+        // ════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Writes the WebUI assets embedded in the executable out to
+        /// <paramref name="targetDir"/> so the single-file build can serve them.
+        /// Overwrites on each boot so the assets stay in sync with the exe.
+        /// Returns true if an index.html is present afterwards.
+        /// </summary>
+        private bool ExtractEmbeddedWebUI(string targetDir)
+        {
+            try
+            {
+                var asm = typeof(MainViewModel).Assembly;
+                const string marker = ".WebUI.";
+                var names = asm.GetManifestResourceNames()
+                    .Where(n => n.Contains(marker, StringComparison.Ordinal))
+                    .ToList();
+
+                if (names.Count == 0) return false;
+
+                Directory.CreateDirectory(targetDir);
+                foreach (var name in names)
+                {
+                    int idx = name.IndexOf(marker, StringComparison.Ordinal);
+                    string fileName = name.Substring(idx + marker.Length);
+                    using var stream = asm.GetManifestResourceStream(name);
+                    if (stream == null) continue;
+                    string outPath = Path.Combine(targetDir, fileName);
+                    using var fs = File.Create(outPath);
+                    stream.CopyTo(fs);
+                }
+
+                return File.Exists(Path.Combine(targetDir, "index.html"));
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Boot", $"Failed to extract embedded WebUI: {ex.Message}");
+                return false;
+            }
         }
 
         // ════════════════════════════════════════════════════════════
@@ -884,11 +1162,29 @@ namespace Controllarr.App.ViewModels
             _postProcessor?.Tick(torrentViews, categories, engineAdapter);
             _seedingPolicy?.Tick(torrentViews, settings, categories, engineAdapter);
 
+            if (_recoveryCenter != null && _healthMonitor != null && _postProcessor != null && _diskSpaceMonitor != null)
+                _recoveryCenter.Tick(_healthMonitor, _postProcessor, _diskSpaceMonitor, settings, engineAdapter);
+            if (_arrNotifier != null && _healthMonitor != null)
+                _arrNotifier.Tick(_healthMonitor, settings);
+
             // Update UI on dispatcher thread
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 // Torrents
                 Torrents = new ObservableCollection<TorrentStats>(torrentStats);
+                ApplyTorrentFilter();
+
+                // Home dashboard: top-8 most active transfers + counts
+                TopTorrents = new ObservableCollection<TorrentStats>(
+                    torrentStats.OrderByDescending(t => t.DownloadRate)
+                                .ThenByDescending(t => t.UploadRate)
+                                .Take(8));
+                OnPropertyChanged(nameof(TorrentCount));
+                OnPropertyChanged(nameof(DownloadingCount));
+                OnPropertyChanged(nameof(SeedingCount));
+                OnPropertyChanged(nameof(PausedCount));
+                OnPropertyChanged(nameof(HasIncomingConnections));
+                OnPropertyChanged(nameof(IncomingStatusText));
 
                 // Session stats
                 SessionStats = sessionStats;
@@ -905,6 +1201,7 @@ namespace Controllarr.App.ViewModels
 
                 // Health
                 HealthIssues = new ObservableCollection<HealthIssue>(healthIssues);
+                OnPropertyChanged(nameof(HealthIssueCount));
 
                 // Post-processor
                 PostRecords = new ObservableCollection<PostRecord>(postRecords);

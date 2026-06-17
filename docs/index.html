@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Controllarr for Windows is a self-contained torrent control plane for Sonarr, Radarr, Overseerr, and Plex workflows.">
+  <meta name="theme-color" content="#071117">
+  <meta property="og:title" content="Controllarr for Windows">
+  <meta property="og:description" content="Windows-native torrent control for your *arr stack.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/icon-256.png">
+  <title>Controllarr for Windows - native torrent control for your *arr stack</title>
+  <link rel="icon" href="assets/icon-256.png">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071117;
+      --panel: rgba(14, 30, 38, 0.78);
+      --line: rgba(151, 190, 189, 0.18);
+      --line-strong: rgba(239, 169, 67, 0.34);
+      --text: #f4efe4;
+      --muted: #a8b8b7;
+      --soft: #6f8786;
+      --amber: #f0a83d;
+      --amber-2: #ffd083;
+      --aqua: #6ed1c3;
+      --green: #65d58c;
+      --win-blue: #4cc2ff;
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+      --radius: 28px;
+      --sans: "Segoe UI", system-ui, sans-serif;
+      --serif: Georgia, "Segoe UI", system-ui, serif;
+      --mono: Consolas, "Cascadia Code", "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at 16% 8%, rgba(64, 122, 132, 0.32), transparent 31rem),
+        radial-gradient(circle at 72% 14%, rgba(240, 168, 61, 0.14), transparent 30rem),
+        linear-gradient(180deg, #061017 0%, #0b1c22 42%, #071117 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.42;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7, 17, 23, 0.72);
+      backdrop-filter: blur(18px);
+    }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; min-height: 76px; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 13px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+    .brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 0 0 1px rgba(240, 168, 61, 0.22); }
+    .nav-links { display: flex; align-items: center; gap: 28px; color: var(--muted); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 20px;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      background: rgba(240, 168, 61, 0.1);
+      color: var(--amber-2);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+    .button:hover { transform: translateY(-2px); border-color: rgba(240, 168, 61, 0.75); background: rgba(240, 168, 61, 0.16); }
+    .button.primary { background: linear-gradient(135deg, #f0a83d, #ffd083); color: #1f1405; border-color: transparent; }
+    .button.quiet { color: var(--text); background: rgba(255,255,255,0.04); border-color: var(--line); }
+
+    .hero { position: relative; padding: 72px 0 48px; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 0.88fr) minmax(460px, 1.12fr); gap: 54px; align-items: center; }
+    h1 { margin: 0; max-width: 760px; font-family: var(--serif); font-size: clamp(3.1rem, 8vw, 6.7rem); line-height: 0.94; letter-spacing: -0.045em; }
+    .arr { color: var(--amber); font-family: var(--sans); letter-spacing: -0.02em; }
+    .lead { margin: 28px 0 0; max-width: 560px; color: #c8d4d2; font-size: clamp(1.05rem, 1.8vw, 1.28rem); line-height: 1.7; }
+    .actions { display: flex; flex-wrap: wrap; gap: 14px; margin: 34px 0 0; }
+    .proof { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; color: var(--soft); font-size: 0.86rem; }
+    .proof span { display: inline-flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--aqua); box-shadow: 0 0 18px var(--aqua); }
+
+    .mockup {
+      position: relative;
+      min-height: 520px;
+      padding: 22px;
+      border: 1px solid rgba(151, 190, 189, 0.24);
+      border-radius: 34px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.025)), rgba(7, 17, 23, 0.72);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .mockup::before { content: ""; position: absolute; inset: -35% -18% auto auto; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(110, 209, 195, 0.28), transparent 68%); }
+    .window { position: relative; border-radius: 22px; border: 1px solid rgba(151, 190, 189, 0.18); background: #081219; overflow: hidden; }
+    /* Windows-style title bar: subtle accent strip + caption controls (minimize / restore / close) */
+    .titlebar { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 6px 0 18px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.035); }
+    .titlebar .title { display: flex; align-items: center; gap: 9px; font-size: 0.76rem; color: var(--muted); letter-spacing: 0.04em; }
+    .titlebar .title b { color: var(--text); font-weight: 650; }
+    .titlebar .accent { width: 3px; height: 18px; border-radius: 2px; background: linear-gradient(180deg, var(--win-blue), #2a8fd6); box-shadow: 0 0 10px rgba(76, 194, 255, 0.5); }
+    .caption { margin-left: auto; display: flex; align-items: stretch; height: 100%; }
+    .caption button { width: 42px; height: 100%; border: 0; background: transparent; color: var(--soft); display: grid; place-items: center; cursor: default; transition: background 140ms ease, color 140ms ease; }
+    .caption svg { width: 11px; height: 11px; }
+    .caption button:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+    .caption button.close:hover { background: #c42b1c; color: #fff; }
+    .dashboard { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 430px; }
+    .sidebar { padding: 24px 16px; border-right: 1px solid var(--line); background: rgba(255,255,255,0.025); }
+    .side-logo { color: var(--amber); font-size: 1.15rem; font-weight: 900; letter-spacing: 0.16em; margin-bottom: 22px; }
+    .side-item { display: block; padding: 11px 12px; margin: 4px 0; border-radius: 10px; color: var(--muted); font-size: 0.78rem; }
+    .side-item.active { color: var(--text); background: rgba(240, 168, 61, 0.13); }
+    .status-card { margin-top: 26px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+    .main-panel { padding: 24px; }
+    .main-panel h2 { margin: 0 0 18px; font-size: 1.2rem; letter-spacing: -0.02em; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .metric { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,0.035); }
+    .metric strong { display: block; font-size: 1.35rem; color: var(--text); }
+    .metric span { display: block; margin-top: 5px; color: var(--soft); font-size: 0.73rem; }
+    .chart { height: 150px; margin: 20px 0; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(180deg, rgba(110, 209, 195, 0.08), transparent); background-size: 100% 30px, 58px 100%, auto; position: relative; overflow: hidden; }
+    .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .rows { display: grid; gap: 9px; }
+    .row { display: grid; grid-template-columns: 1.6fr 0.7fr 0.7fr 0.7fr; gap: 14px; padding: 11px 0; border-bottom: 1px solid rgba(151, 190, 189, 0.12); color: var(--muted); font-size: 0.78rem; }
+    .row b { color: var(--text); font-weight: 650; }
+    .green { color: var(--green); }
+    .amber { color: var(--amber); }
+
+    section { padding: 76px 0; }
+    .section-title { max-width: 760px; margin: 0 auto 46px; text-align: center; }
+    .section-title h2 { margin: 0; font-family: var(--serif); font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1.04; letter-spacing: -0.035em; }
+    .section-title p { margin: 18px auto 0; max-width: 650px; color: var(--muted); font-size: 1.04rem; line-height: 1.7; }
+    .feature-rail { display: grid; gap: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .feature { display: grid; grid-template-columns: 94px minmax(0, 0.9fr) minmax(280px, 1.1fr); gap: 30px; align-items: center; padding: 28px 0; border-bottom: 1px solid rgba(151, 190, 189, 0.12); }
+    .feature:last-child { border-bottom: 0; }
+    .icon-orb { display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--amber); font-size: 1.6rem; font-weight: 900; background: radial-gradient(circle at 35% 20%, rgba(110, 209, 195, 0.17), rgba(240, 168, 61, 0.05)); }
+    .feature h3 { margin: 0; color: var(--amber); font-size: 0.95rem; letter-spacing: 0.18em; text-transform: uppercase; }
+    .feature p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
+    .code-card, .signal-card { border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.035); padding: 20px; overflow: hidden; }
+    code, pre { font-family: var(--mono); }
+    pre { margin: 0; color: #d4e7e3; font-size: 0.78rem; line-height: 1.7; white-space: pre-wrap; }
+    .signal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .signal-card strong { display: block; color: var(--aqua); font-size: 1.9rem; letter-spacing: -0.04em; }
+    .signal-card span { display: block; margin-top: 7px; color: var(--soft); font-size: 0.76rem; letter-spacing: 0.14em; text-transform: uppercase; }
+    .release-band { display: grid; grid-template-columns: minmax(0, 0.78fr) minmax(320px, 1.22fr); gap: 48px; align-items: center; padding: 44px; border: 1px solid var(--line); border-radius: var(--radius); background: radial-gradient(circle at 18% 18%, rgba(240, 168, 61, 0.16), transparent 26rem), rgba(255,255,255,0.035); box-shadow: var(--shadow); }
+    .release-band h2 { margin: 0; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.08; letter-spacing: -0.035em; }
+    .release-list { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
+    .release-list li { display: grid; grid-template-columns: 36px 1fr; gap: 14px; padding: 15px 0; border-bottom: 1px solid rgba(151, 190, 189, 0.12); color: var(--muted); line-height: 1.55; }
+    .release-list li:last-child { border-bottom: 0; }
+    .release-list b { color: var(--text); }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .step { min-height: 210px; padding: 24px; border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,0.035); }
+    .step-num { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--amber); font-weight: 900; }
+    .step h3 { margin: 22px 0 10px; color: var(--amber); font-size: 0.86rem; letter-spacing: 0.16em; text-transform: uppercase; }
+    .step p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .install-note { margin-top: 18px; padding: 18px; border: 1px solid rgba(110, 209, 195, 0.24); border-radius: 18px; color: var(--muted); background: rgba(110, 209, 195, 0.055); line-height: 1.65; }
+    .install-note code { color: var(--aqua); }
+    .connect-band { margin-top: 30px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr); gap: 30px; align-items: center; padding: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,0.03); }
+    .connect-band h3 { margin: 0 0 10px; color: var(--amber); font-size: 0.95rem; letter-spacing: 0.18em; text-transform: uppercase; }
+    .connect-band p { margin: 0; color: var(--muted); line-height: 1.7; }
+    .connect-band dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 16px 0 0; }
+    .connect-band dt { color: var(--soft); font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; align-self: center; }
+    .connect-band dd { margin: 0; color: var(--text); font-family: var(--mono); font-size: 0.84rem; }
+    footer { padding: 34px 0 42px; border-top: 1px solid var(--line); color: var(--soft); }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+    .footer-links a, .nav-links a { transition: color 180ms ease; }
+    .footer-links a:hover, .nav-links a:hover { color: var(--amber-2); }
+
+    @media (max-width: 980px) {
+      .hero-grid, .release-band, .connect-band { grid-template-columns: 1fr; }
+      .hero { padding-top: 46px; }
+      .mockup { min-height: auto; }
+      .feature { grid-template-columns: 76px 1fr; }
+      .feature > :last-child { grid-column: 2; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 700px) {
+      .shell { width: min(100% - 26px, 1180px); }
+      .nav-inner { min-height: 66px; }
+      .brand { letter-spacing: 0.14em; font-size: 0.88rem; }
+      .hero { padding-bottom: 24px; }
+      .dashboard { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .metric-grid, .signal-grid, .steps { grid-template-columns: 1fr; }
+      .feature { grid-template-columns: 1fr; gap: 16px; }
+      .feature > :last-child { grid-column: auto; }
+      .release-band, .connect-band { padding: 26px; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+      .row { grid-template-columns: 1fr 0.7fr; }
+      .row span:nth-child(3), .row span:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="shell nav-inner">
+      <a class="brand" href="#top" aria-label="Controllarr for Windows home">
+        <img src="assets/icon-256.png" alt="">
+        <span>Controllarr</span>
+      </a>
+      <div class="nav-links" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#release">Latest</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Docs</a>
+      </div>
+      <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows">GitHub</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <h1>Windows-native torrent control for your <span class="arr">*arr</span> stack.</h1>
+          <p class="lead">Controllarr for Windows is a self-contained BitTorrent client and qBittorrent-compatible API target built for Sonarr, Radarr, Overseerr, Plex, and operators who want a Windows box to behave like a proper media-download node. One <code>Controllarr.exe</code> &mdash; no .NET install required.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Download latest</a>
+            <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows">View on GitHub</a>
+          </div>
+          <div class="proof" aria-label="Project highlights">
+            <span><i class="dot"></i>Windows 10/11</span>
+            <span><i class="dot"></i>Self-contained .exe &mdash; no .NET install</span>
+            <span><i class="dot"></i>MIT licensed</span>
+            <span><i class="dot"></i>qBittorrent Web API v2</span>
+          </div>
+        </div>
+
+        <div class="mockup" aria-label="Controllarr dashboard preview">
+          <div class="window">
+            <div class="titlebar">
+              <span class="title"><i class="accent"></i><b>Controllarr</b> &mdash; Home</span>
+              <div class="caption" aria-hidden="true">
+                <button aria-label="Minimize"><svg viewBox="0 0 11 11"><path d="M0 5.5 H11" stroke="currentColor" stroke-width="1.1" fill="none"/></svg></button>
+                <button aria-label="Restore"><svg viewBox="0 0 11 11"><rect x="0.6" y="0.6" width="9.8" height="9.8" stroke="currentColor" stroke-width="1.1" fill="none"/></svg></button>
+                <button class="close" aria-label="Close"><svg viewBox="0 0 11 11"><path d="M0.5 0.5 L10.5 10.5 M10.5 0.5 L0.5 10.5" stroke="currentColor" stroke-width="1.1" fill="none"/></svg></button>
+              </div>
+            </div>
+            <div class="dashboard">
+              <aside class="sidebar">
+                <div class="side-logo">CTRL</div>
+                <span class="side-item active">Home</span>
+                <span class="side-item">Torrents</span>
+                <span class="side-item">Categories</span>
+                <span class="side-item">Health</span>
+                <span class="side-item">Log</span>
+                <div class="status-card">VPN connected<br>Wintun bound<br><span class="green">No torrent leak path</span></div>
+              </aside>
+              <div class="main-panel">
+                <h2>Session Overview</h2>
+                <div class="metric-grid">
+                  <div class="metric"><strong>1,248</strong><span>tracked torrents</span></div>
+                  <div class="metric"><strong>712</strong><span>seeding</span></div>
+                  <div class="metric"><strong>0.0.0.0</strong><span>bind host (LAN)</span></div>
+                  <div class="metric"><strong>8791</strong><span>WebUI/API port</span></div>
+                </div>
+                <div class="chart" aria-hidden="true">
+                  <svg viewBox="0 0 640 150" preserveAspectRatio="none">
+                    <path d="M0 112 C45 110 46 70 88 76 C130 82 130 40 172 56 C215 72 220 92 262 74 C310 54 306 30 350 44 C390 58 402 94 438 80 C486 58 488 34 530 46 C578 58 574 92 640 70" fill="none" stroke="#6ed1c3" stroke-width="3"/>
+                    <path d="M0 122 C60 104 92 128 138 112 C190 92 232 132 280 110 C340 82 388 132 440 106 C492 82 532 126 640 104" fill="none" stroke="#f0a83d" stroke-width="2"/>
+                  </svg>
+                </div>
+                <div class="rows">
+                  <div class="row"><b>Planet Earth 4K</b><span class="green">Seeding</span><span>28.7 GB</span><span>12 MB/s</span></div>
+                  <div class="row"><b>The Ministry</b><span class="amber">Checking</span><span>2.1 GB</span><span>LAN</span></div>
+                  <div class="row"><b>Dune Part Two</b><span class="green">Complete</span><span>86.5 GB</span><span>Imported</span></div>
+                  <div class="row"><b>Foundation S03</b><span class="green">Downloading</span><span>12.4 GB</span><span>215 MB/s</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Built for control. Designed for scale.</h2>
+          <p>A focused Windows app for people who want native WPF UI, a bundled remote Web UI, *arr compatibility, VPN-aware torrent traffic, and stability under large libraries &mdash; all from a single self-contained executable.</p>
+        </div>
+
+        <div class="feature-rail">
+          <article class="feature">
+            <div class="icon-orb">VPN</div>
+            <div>
+              <h3>VPN-aware routing</h3>
+              <p>Bind torrent traffic to the VPN adapter, pause on VPN drops with a kill switch, and keep the WebUI/API listener available for LAN clients. Detects TAP-Windows, WireGuard, and Wintun interfaces automatically.</p>
+            </div>
+            <div class="signal-grid">
+              <div class="signal-card"><strong>Wintun</strong><span>adapter watch</span></div>
+              <div class="signal-card"><strong>LAN</strong><span>remote API</span></div>
+              <div class="signal-card"><strong>Kill</strong><span>switch</span></div>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="icon-orb">qb</div>
+            <div>
+              <h3>qBittorrent-compatible API</h3>
+              <p>Point Sonarr, Radarr, and Overseerr at Controllarr using the qBittorrent download-client type. No brittle scraping or custom downloader plugin required. Default login <code>admin / adminadmin</code>.</p>
+            </div>
+            <div class="code-card">
+<pre>POST /api/v2/torrents/add
+category=tv
+urls=magnet:?xt=urn:btih:...
+
+GET /api/v2/torrents/info</pre>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="icon-orb">1K</div>
+            <div>
+              <h3>Large-library stability</h3>
+              <p>Automatic listen-port cycling on stall, disk-space-aware auto-pause, a crash-surviving on-disk log, and conservative resolver protection so VPN/DNS tracker lookups cannot spike under very large libraries.</p>
+            </div>
+            <div class="signal-grid">
+              <div class="signal-card"><strong>1,000+</strong><span>torrent guidance</span></div>
+              <div class="signal-card"><strong>2s</strong><span>fast polling</span></div>
+              <div class="signal-card"><strong>5MB</strong><span>rotating log</span></div>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="icon-orb">UI</div>
+            <div>
+              <h3>Native WPF + bundled Web UI</h3>
+              <p>Use the WPF window with its Home dashboard, the system tray icon, or the bundled dark Windows 11-style Web UI served by the embedded Kestrel server from any machine on your network.</p>
+            </div>
+            <div class="code-card">
+<pre>Local:  http://127.0.0.1:8791
+LAN:    http://192.168.1.122:8791
+Login:  admin / adminadmin</pre>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="release">
+      <div class="shell">
+        <div class="release-band">
+          <div>
+            <h2>What's new in v2.1.15</h2>
+            <p class="lead">The Windows port now aligns 1:1 with macOS Controllarr v2.1.15: a single self-contained <code>Controllarr.exe</code>, a new Home dashboard, a bundled browser Web UI, and a GitHub-release update check.</p>
+            <div class="actions">
+              <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Release notes</a>
+              <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Documentation</a>
+            </div>
+          </div>
+          <ul class="release-list">
+            <li><span class="amber">01</span><span><b>Self-contained executable.</b> One win-x64 <code>Controllarr.exe</code> on net8.0-windows &mdash; no .NET runtime install needed. WPF UI plus an embedded ASP.NET Core Kestrel server.</span></li>
+            <li><span class="amber">02</span><span><b>Bundled Web UI.</b> A no-build dark Windows 11-style SPA served at <code>http://127.0.0.1:8791</code> with Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs.</span></li>
+            <li><span class="amber">03</span><span><b>New Home dashboard + search.</b> Session metric cards, status pills, quick actions, most-active transfers, and a torrents search box by name, category, or info-hash.</span></li>
+            <li><span class="amber">04</span><span><b>Crash-surviving log + update check.</b> A persistent rotating log under <code>%LOCALAPPDATA%\Controllarr\logs</code> plus a "Check for Updates" action backed by the GitHub Releases API.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Get started in minutes.</h2>
+          <p>Download the latest <code>Controllarr.exe</code>, run it, and point your *arr apps at the qBittorrent-compatible API. No installer, no .NET download.</p>
+        </div>
+        <div class="steps">
+          <article class="step">
+            <div class="step-num">1</div>
+            <h3>Download</h3>
+            <p>Grab the latest <code>Controllarr.exe</code> from GitHub Releases. It is fully self-contained.</p>
+          </article>
+          <article class="step">
+            <div class="step-num">2</div>
+            <h3>Run</h3>
+            <p>Double-click <code>Controllarr.exe</code>. On first launch, Windows SmartScreen may appear &mdash; see the note below to run it.</p>
+          </article>
+          <article class="step">
+            <div class="step-num">3</div>
+            <h3>Configure</h3>
+            <p>For LAN clients, set the WebUI bind host to <code>0.0.0.0</code>, restart, and use the PC's LAN IP. Open the Web UI at <code>http://127.0.0.1:8791</code>.</p>
+          </article>
+          <article class="step">
+            <div class="step-num">4</div>
+            <h3>Connect</h3>
+            <p>Add Controllarr as a qBittorrent client in Sonarr or Radarr at <code>http://&lt;host&gt;:8791</code>.</p>
+          </article>
+        </div>
+
+        <div class="install-note">
+          <b>Running an unsigned executable.</b> Controllarr.exe is not code-signed, so Windows may warn on first launch. If Microsoft Defender SmartScreen appears, click <code>More info</code> then <code>Run anyway</code>. Alternatively, clear the mark-of-the-web before launching: right-click <code>Controllarr.exe</code> &rarr; <code>Properties</code> &rarr; tick <code>Unblock</code> &rarr; <code>OK</code>, or run in PowerShell: <code>Unblock-File .\Controllarr.exe</code>
+        </div>
+
+        <div class="connect-band">
+          <div>
+            <h3>Connecting Sonarr / Radarr / Overseerr</h3>
+            <p>In Sonarr, Radarr, or Overseerr, add a download client of type <b>qBittorrent</b> and point it at Controllarr. Credentials are stored locally with Windows DPAPI. To reach Controllarr from other machines on your LAN, set the WebUI bind host to <code>0.0.0.0</code> and restart, then use the PC's LAN IP in place of <code>127.0.0.1</code>.</p>
+          </div>
+          <dl>
+            <dt>Client type</dt><dd>qBittorrent</dd>
+            <dt>Host</dt><dd>127.0.0.1</dd>
+            <dt>Port</dt><dd>8791</dd>
+            <dt>Username</dt><dd>admin</dd>
+            <dt>Password</dt><dd>adminadmin</dd>
+            <dt>LAN bind</dt><dd>0.0.0.0</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <div>Controllarr for Windows. Take control. Stay private. Keep seeding.</div>
+      <div class="footer-links">
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows">GitHub</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Releases</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Docs</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

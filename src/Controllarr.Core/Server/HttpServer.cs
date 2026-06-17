@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
@@ -88,6 +93,9 @@ namespace Controllarr.Core.Server
             // Configure Kestrel
             builder.WebHost.ConfigureKestrel(options =>
             {
+                // We emit our own Server header ("Controllarr/<version>").
+                options.AddServerHeader = false;
+
                 if (_host == "0.0.0.0" || _host == "::" || _host == "*")
                 {
                     options.ListenAnyIP(_port);
@@ -116,6 +124,41 @@ namespace Controllarr.Core.Server
                 if (ctx.Request.Method == "OPTIONS")
                 {
                     ctx.Response.StatusCode = 204;
+                    return;
+                }
+
+                await next();
+            });
+
+            // ── Security headers + Server identity + IP allowlist ────
+            string serverVersion =
+                Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3)
+                ?? typeof(ControllarrHttpServer).Assembly.GetName().Version?.ToString(3)
+                ?? "2.1.15";
+
+            _app.Use(async (ctx, next) =>
+            {
+                var sec = _store.GetSettings().WebUISecurity;
+
+                // Identify ourselves rather than leaking Kestrel's version.
+                ctx.Response.Headers["Server"] = $"Controllarr/{serverVersion}";
+
+                // Baseline hardening.
+                ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+                if (sec.ClickjackingProtection)
+                {
+                    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+                    ctx.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'";
+                }
+
+                // Optional IP allowlist. Loopback is always permitted so the
+                // local app and *arr on the same box never lock themselves out.
+                if (sec.AllowlistEnabled &&
+                    !IsRemoteAllowed(ctx.Connection.RemoteIpAddress, sec.AllowedCIDRs))
+                {
+                    ctx.Response.StatusCode = 403;
+                    await ctx.Response.WriteAsync("Forbidden (not in allowlist)");
                     return;
                 }
 
@@ -224,6 +267,87 @@ namespace Controllarr.Core.Server
                 await _app.DisposeAsync();
                 _app = null;
                 _logger.Info("HttpServer", "HTTP server stopped");
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // IP allowlist
+        // ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns true if the remote address is loopback (always allowed) or
+        /// matches any configured CIDR. An empty/invalid list with the
+        /// allowlist enabled allows only loopback.
+        /// </summary>
+        private static bool IsRemoteAllowed(IPAddress? remote, IReadOnlyList<string> cidrs)
+        {
+            if (remote == null) return false;
+            if (IPAddress.IsLoopback(remote)) return true;
+
+            // Normalize IPv4-mapped IPv6 (::ffff:a.b.c.d) to IPv4.
+            if (remote.IsIPv4MappedToIPv6)
+                remote = remote.MapToIPv4();
+
+            if (cidrs == null) return false;
+
+            foreach (var cidr in cidrs)
+            {
+                if (CidrMatch(remote, cidr))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool CidrMatch(IPAddress address, string cidr)
+        {
+            if (string.IsNullOrWhiteSpace(cidr)) return false;
+
+            try
+            {
+                var parts = cidr.Trim().Split('/');
+                if (!IPAddress.TryParse(parts[0], out var network))
+                    return false;
+
+                // Bare address (no prefix) → exact match.
+                if (parts.Length == 1)
+                    return address.Equals(network);
+
+                if (!int.TryParse(parts[1], out int prefix))
+                    return false;
+
+                if (network.AddressFamily != address.AddressFamily)
+                    return false;
+
+                byte[] netBytes = network.GetAddressBytes();
+                byte[] addrBytes = address.GetAddressBytes();
+                if (netBytes.Length != addrBytes.Length)
+                    return false;
+
+                int totalBits = netBytes.Length * 8;
+                if (prefix < 0 || prefix > totalBits)
+                    return false;
+
+                int fullBytes = prefix / 8;
+                int remainderBits = prefix % 8;
+
+                for (int i = 0; i < fullBytes; i++)
+                {
+                    if (netBytes[i] != addrBytes[i])
+                        return false;
+                }
+
+                if (remainderBits > 0)
+                {
+                    int mask = (byte)(0xFF << (8 - remainderBits));
+                    if ((netBytes[fullBytes] & mask) != (addrBytes[fullBytes] & mask))
+                        return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
