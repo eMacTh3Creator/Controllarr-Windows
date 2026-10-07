@@ -58,6 +58,7 @@ namespace Controllarr.Core.Persistence
         // state.json never stores the plaintext; this in-memory copy is the
         // decrypted working value, overlaid into the Settings handed to callers.
         private string _webUIPassword = "adminadmin";
+        private string _proxyPassword = "";
 
         // ────────────────────────────────────────────────────────────
         // Constructor
@@ -65,10 +66,7 @@ namespace Controllarr.Core.Persistence
 
         public PersistenceStore(string? directory = null)
         {
-            Directory = directory
-                ?? Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Controllarr");
+            Directory = directory ?? ProfilePaths.CurrentDirectory;
 
             StateFilePath = Path.Combine(Directory, "state.json");
             ResumeDirectory = Path.Combine(Directory, "resume");
@@ -82,6 +80,19 @@ namespace Controllarr.Core.Persistence
 
             // Resolve the WebUI password from DPAPI (migrating any plaintext).
             InitializeWebUISecret();
+            InitializeProxySecret();
+        }
+
+        private void InitializeProxySecret()
+        {
+            if (!string.IsNullOrEmpty(_state.Settings.TorrentNetwork.ProxyPassword))
+            {
+                _proxyPassword = _state.Settings.TorrentNetwork.ProxyPassword;
+                CredentialStore.Set(CredentialStore.TorrentProxyPasswordKey, _proxyPassword);
+                _state.Settings.TorrentNetwork.ProxyPassword = "";
+                WriteToDisk(_state);
+            }
+            else _proxyPassword = CredentialStore.Get(CredentialStore.TorrentProxyPasswordKey) ?? "";
         }
 
         // ────────────────────────────────────────────────────────────
@@ -140,6 +151,7 @@ namespace Controllarr.Core.Persistence
             {
                 var snapshot = DeepClone(_state);
                 snapshot.Settings.WebUIPassword = _webUIPassword;   // overlay decrypted secret
+                snapshot.Settings.TorrentNetwork.ProxyPassword = _proxyPassword;
                 return snapshot;
             }
             finally
@@ -159,6 +171,7 @@ namespace Controllarr.Core.Persistence
             {
                 var settings = DeepClone(_state.Settings);
                 settings.WebUIPassword = _webUIPassword;   // overlay decrypted secret
+                settings.TorrentNetwork.ProxyPassword = _proxyPassword;
                 return settings;
             }
             finally
@@ -174,8 +187,13 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
-                transform(_state.Settings);
-                CaptureWebUISecret(_state.Settings);   // move any new plaintext password into DPAPI
+                var updated = DeepClone(_state.Settings);
+                updated.WebUIPassword = _webUIPassword;
+                updated.TorrentNetwork.ProxyPassword = _proxyPassword;
+                transform(updated);
+                CaptureWebUISecret(updated);
+                CaptureProxySecret(updated);
+                _state.Settings = updated;
             }
             finally
             {
@@ -192,8 +210,10 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
-                CaptureWebUISecret(newSettings);       // move any new plaintext password into DPAPI
-                _state.Settings = newSettings;
+                var captured = DeepClone(newSettings);
+                CaptureWebUISecret(captured);
+                CaptureProxySecret(captured);
+                _state.Settings = captured;
             }
             finally
             {
@@ -201,6 +221,18 @@ namespace Controllarr.Core.Persistence
             }
 
             ScheduleSave();
+        }
+
+        private void CaptureProxySecret(Settings settings)
+        {
+            string password = settings.TorrentNetwork.ProxyPassword;
+            if (password != _proxyPassword)
+            {
+                if (string.IsNullOrEmpty(password)) CredentialStore.Delete(CredentialStore.TorrentProxyPasswordKey);
+                else CredentialStore.Set(CredentialStore.TorrentProxyPasswordKey, password);
+                _proxyPassword = password;
+            }
+            settings.TorrentNetwork.ProxyPassword = "";
         }
 
         // ────────────────────────────────────────────────────────────
@@ -402,10 +434,12 @@ namespace Controllarr.Core.Persistence
                 // state.json no longer holds the plaintext WebUI password; include
                 // the decrypted value so a with-secrets backup can be restored.
                 snapshot.Settings.WebUIPassword = _webUIPassword;
+                snapshot.Settings.TorrentNetwork.ProxyPassword = _proxyPassword;
             }
             else
             {
                 snapshot.Settings.WebUIPassword = "***REDACTED***";
+                snapshot.Settings.TorrentNetwork.ProxyPassword = "***REDACTED***";
                 foreach (var ep in snapshot.Settings.ArrEndpoints)
                     ep.ApiKey = "***REDACTED***";
             }
@@ -435,6 +469,8 @@ namespace Controllarr.Core.Persistence
             _semaphore.Wait();
             try
             {
+                if (archive.State.Settings.WebUIPassword == "***REDACTED***") archive.State.Settings.WebUIPassword = _webUIPassword;
+                if (archive.State.Settings.TorrentNetwork.ProxyPassword == "***REDACTED***") archive.State.Settings.TorrentNetwork.ProxyPassword = _proxyPassword;
                 _state = archive.State;
             }
             finally
@@ -445,6 +481,7 @@ namespace Controllarr.Core.Persistence
             // Migrate any plaintext WebUI password from the imported backup into
             // DPAPI (and blank it on disk).
             InitializeWebUISecret();
+            InitializeProxySecret();
 
             // Write immediately – don't debounce a restore
             FlushNow();

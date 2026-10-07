@@ -4,6 +4,14 @@ using System.Windows.Data;
 
 namespace Controllarr.App.Helpers
 {
+    public sealed class StringListConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object? parameter, CultureInfo culture)
+            => value is IEnumerable<string> values ? string.Join(", ", values) : "";
+        public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture)
+            => (value?.ToString() ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.StartsWith('.') ? s : "." + s).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
     /// <summary>Formats a byte count (long) as a human-readable size, e.g. "1.4 GB".</summary>
     public sealed class SizeConverter : IValueConverter
     {

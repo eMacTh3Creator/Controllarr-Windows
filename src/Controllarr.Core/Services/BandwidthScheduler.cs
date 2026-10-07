@@ -18,6 +18,7 @@ namespace Controllarr.Core.Services
         private readonly ITorrentEngine _engine;
         private readonly Func<IReadOnlyList<BandwidthRule>> _rulesProvider;
         private readonly Logger _logger;
+        private readonly Func<(int Download, int Upload)> _defaultsProvider;
         private Timer? _timer;
         private readonly object _lock = new();
 
@@ -36,11 +37,13 @@ namespace Controllarr.Core.Services
         /// <param name="logger">Optional logger instance.</param>
         public BandwidthScheduler(ITorrentEngine engine,
                                   Func<IReadOnlyList<BandwidthRule>> rulesProvider,
-                                  Logger? logger = null)
+                                  Logger? logger = null,
+                                  Func<(int Download, int Upload)>? defaultsProvider = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _rulesProvider = rulesProvider ?? throw new ArgumentNullException(nameof(rulesProvider));
             _logger = logger ?? Logger.Instance;
+            _defaultsProvider = defaultsProvider ?? (() => (0, 0));
         }
 
         /// <summary>Start the scheduler timer.</summary>
@@ -78,6 +81,9 @@ namespace Controllarr.Core.Services
 
         private void OnTick(object? state)
         {
+            lock (_lock)
+            {
+            if (_timer == null) return;
             try
             {
                 var rules = _rulesProvider();
@@ -103,8 +109,9 @@ namespace Controllarr.Core.Services
                 }
 
                 // Determine effective limits (null = unlimited, i.e. 0)
-                int effectiveDown = matchedDownload ?? 0;
-                int effectiveUp = matchedUpload ?? 0;
+                var defaults = _defaultsProvider();
+                int effectiveDown = matchedDownload ?? defaults.Download;
+                int effectiveUp = matchedUpload ?? defaults.Upload;
 
                 // Only apply if changed
                 if (effectiveDown != _lastDownloadKBps || effectiveUp != _lastUploadKBps)
@@ -121,13 +128,14 @@ namespace Controllarr.Core.Services
                     else
                     {
                         _logger.Info("BandwidthScheduler",
-                            "No matching rule – removed rate limits");
+                            "No matching rule - applied global rate limits");
                     }
                 }
             }
             catch (Exception ex)
             {
                 _logger.Error("BandwidthScheduler", $"Tick error: {ex.Message}");
+            }
             }
         }
 

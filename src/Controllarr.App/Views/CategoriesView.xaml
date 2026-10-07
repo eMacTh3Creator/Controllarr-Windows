@@ -41,7 +41,7 @@
             </DockPanel>
 
             <!-- ══ Right panel: Category editor ═══════════════════ -->
-            <ScrollViewer Grid.Column="1"
+            <ScrollViewer Grid.Column="1" h:ValidationGate.Enabled="True"
                           VerticalScrollBarVisibility="Auto"
                           Padding="24,16">
                 <StackPanel MaxWidth="560">
@@ -91,7 +91,7 @@
 
                         <!-- Blocked Extensions -->
                         <TextBlock Text="Blocked Extensions (comma-separated, e.g. .exe,.bat)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
-                        <TextBox Margin="0,0,0,16"/>
+                        <TextBox Text="{Binding BlockedExtensions, Converter={StaticResource StringListConverter}, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,16"/>
 
                         <!-- Max Ratio -->
                         <Grid Margin="0,0,0,16">
@@ -124,6 +124,7 @@
                                        Margin="0,0,12,0"/>
                             <Button Style="{StaticResource AccentButton}"
                                     Content="Save Category"
+                                    IsEnabled="{Binding Path=(h:ValidationGate.IsValid), RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
                                     Command="{Binding DataContext.SaveCategoriesCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
                                     Margin="0,0,12,0"/>
                             <Button Content="Revert"

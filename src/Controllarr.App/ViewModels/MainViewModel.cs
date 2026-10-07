@@ -50,6 +50,19 @@ namespace Controllarr.App.ViewModels
 
     public partial class MainViewModel : ObservableObject
     {
+        public DesktopViewModel Desktop { get; }
+        internal TorrentEngine? DesktopEngine => _engine;
+        internal bool DesktopTransferAllowed => _diskSpaceMonitor?.Snapshot().IsPaused != true &&
+            _engine?.NetworkPolicy.Allowed == true;
+        public MainViewModel() => Desktop = new DesktopViewModel(this);
+        internal void PersistDesktopCategories()
+        {
+            if (_engine != null && _store != null)
+            {
+                _store.SetCategoryMap(_engine.SnapshotCategories());
+                _store.FlushNow();
+            }
+        }
         // ── Runtime services ───────────────────────────────────────
         private TorrentEngine? _engine;
         private PersistenceStore? _store;
@@ -64,10 +77,43 @@ namespace Controllarr.App.ViewModels
         private ControllarrHttpServer? _httpServer;
         private Logger _logger = Logger.Instance;
         private CancellationTokenSource? _pollCts;
+        private Task? _pollTask;
+        private RssService? _rssService;
+        private BandwidthScheduler? _bandwidthScheduler;
+        [ObservableProperty] private ObservableCollection<RssEntry> _rssEntries = new();
+        [ObservableProperty] private string _rssStatus = "Configure feeds, then save settings to activate them.";
+
+        [RelayCommand] private void AddRssFeed()
+        {
+            Settings.RssFeeds.Add(new RssFeed());
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+        [RelayCommand] private void RemoveRssFeed(RssFeed? feed)
+        {
+            if (feed == null) return;
+            Settings.RssFeeds.Remove(feed);
+            OnPropertyChanged(nameof(Settings));
+            _settingsUserModified = true;
+        }
+        [RelayCommand] private async Task CheckRss()
+        {
+            if (_rssService == null) return;
+            RssStatus = "Checking feeds and watch folder...";
+            try { await Task.Run(_rssService.ScanNowAsync); RssEntries = new(_rssService.Snapshot()); RssStatus = "Check complete. Only saved feed settings are used."; }
+            catch (Exception ex) { RssStatus = ex.Message; }
+        }
 
         // ── Dirty-tracking for editable state ─────────────────────
         private bool _settingsUserModified;
         private bool _categoriesUserModified;
+        private readonly Dictionary<Category, string> _categoryOriginalNames = new();
+
+        partial void OnCategoriesChanged(ObservableCollection<Category> value)
+        {
+            _categoryOriginalNames.Clear();
+            foreach (var category in value) _categoryOriginalNames[category] = category.Name;
+        }
 
         // ════════════════════════════════════════════════════════════
         // Observable properties
@@ -80,7 +126,7 @@ namespace Controllarr.App.ViewModels
         private string? _bootError;
 
         [ObservableProperty]
-        private string _selectedTab = "Home";
+        private string _selectedTab = "Torrents";
 
         [ObservableProperty]
         private bool _isTabSelected_Home = true;
@@ -89,7 +135,7 @@ namespace Controllarr.App.ViewModels
         private bool _isTabSelected_Torrents;
 
         [ObservableProperty]
-        private ObservableCollection<TorrentStats> _torrents = new();
+        private IReadOnlyList<TorrentStats> _torrents = Array.Empty<TorrentStats>();
 
         [ObservableProperty]
         private TorrentStats? _selectedTorrent;
@@ -204,7 +250,8 @@ namespace Controllarr.App.ViewModels
             VpnStatus?.IsConnected ?? false;
 
         public string VpnStatusText =>
-            VpnStatus == null ? "VPN Off"
+            _engine?.NetworkPolicy.RestartRequired == true ? "Network blocked: restart required"
+            : VpnStatus == null ? "VPN Off"
             : VpnStatus.Enabled
                 ? (VpnStatus.IsConnected ? "VPN On" : "VPN Down")
                 : "VPN Off";
@@ -226,6 +273,7 @@ namespace Controllarr.App.ViewModels
 
         partial void OnLaunchAtStartupChanged(bool value)
         {
+            if (ProfilePaths.IsCustom) return;
             try
             {
                 using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegistryKey, writable: true);
@@ -388,16 +436,50 @@ namespace Controllarr.App.ViewModels
         }
 
         [RelayCommand]
-        private void SaveSettings()
+        private async Task SaveSettings()
         {
             if (_store == null) return;
-
-            _store.ReplaceSettings(Settings);
-            _settingsUserModified = false;
-            _logger.Info("UI", "Settings saved");
+            if (Settings.ListenPortRangeStart == 0 || Settings.ListenPortRangeEnd < Settings.ListenPortRangeStart ||
+                Settings.PreferredListenPort == 0 || Settings.WebUIPort is < 1 or > 65535 ||
+                Settings.ConnectionLimits.GlobalMaxConnections is < 1 or > 10000 ||
+                !Path.IsPathFullyQualified(Settings.DefaultSavePath))
+            {
+                SaveFeedbackText = "Check port range, preferred port, connection limit (1-10000) and absolute save folder.";
+                return;
+            }
+            try
+            {
+                Controllarr.Core.Networking.TorrentNetworkPolicy.Validate(Settings);
+                if (Settings.GlobalDownloadKBps is < 0 or > 1000000 || Settings.GlobalUploadKBps is < 0 or > 1000000 ||
+                    Settings.TorrentQueueing.MaxActiveDownloads < 0 || Settings.TorrentQueueing.MaxActiveSeeds < 0 || Settings.TorrentQueueing.MaxActiveTotal < 0)
+                    throw new ArgumentException("Speed and queue limits must be non-negative; speed limits cannot exceed 1000000 KiB/s.");
+                if (!string.IsNullOrWhiteSpace(Settings.WatchFolder) && !Path.IsPathFullyQualified(Settings.WatchFolder))
+                    throw new ArgumentException("The watch folder must be an absolute path.");
+                if (Settings.RssFeeds.Count > 100) throw new ArgumentException("Use at most 100 RSS feeds.");
+                foreach (var feed in Settings.RssFeeds) RssParser.Validate(feed);
+                foreach (var rule in Settings.BandwidthSchedule)
+                    if (rule.StartHour is < 0 or > 23 || rule.EndHour is < 0 or > 23 || rule.StartMinute is < 0 or > 59 || rule.EndMinute is < 0 or > 59 ||
+                        rule.MaxDownloadKBps is < 0 or > 1000000 || rule.MaxUploadKBps is < 0 or > 1000000)
+                        throw new ArgumentException("Check schedule times and speed limits.");
+                _store.ReplaceSettings(Settings);
+                var saved = _store.GetSettings();
+                if (_engine != null)
+                    await Task.Run(() =>
+                    {
+                        _engine.DefaultSavePath = saved.DefaultSavePath;
+                        _engine.ApplyTuning(saved.ConnectionLimits.GlobalMaxConnections, saved.PeerDiscovery.DhtEnabled, saved.PeerDiscovery.LsdEnabled);
+                        _engine.ConfigureQueue(saved.TorrentQueueing);
+                        _engine.SetRateLimits(saved.GlobalDownloadKBps, saved.GlobalUploadKBps);
+                        _engine.ApplyAdvancedSettingsAsync(saved).GetAwaiter().GetResult();
+                    });
+                _settingsUserModified = false;
+                _logger.Info("UI", "Settings saved");
+            }
+            catch (Exception ex) { SaveFeedbackText = ex.Message; _logger.Error("UI", $"Settings save failed: {ex}"); return; }
 
             // Show feedback, then clear after 2.5s
-            SaveFeedbackText = "Settings saved!";
+            SaveFeedbackText = _engine?.NetworkPolicy.RestartRequired == true ? "Saved. Torrent networking is blocked until you quit and reopen Controllarr." : "Settings saved!";
+            if (_engine?.NetworkPolicy.RestartRequired == true) return;
             _ = Task.Run(async () =>
             {
                 await Task.Delay(2500);
@@ -452,7 +534,7 @@ namespace Controllarr.App.ViewModels
             if (_store == null) return;
 
             var settings = _store.GetSettings();
-            string url = $"http://{settings.WebUIHost}:{settings.WebUIPort}";
+            string url = $"http://127.0.0.1:{settings.WebUIPort}";
 
             try
             {
@@ -837,8 +919,32 @@ namespace Controllarr.App.ViewModels
         private void SaveCategories()
         {
             if (_store == null) return;
-
+            if (Categories.Any(c => string.IsNullOrWhiteSpace(c.Name) || string.IsNullOrWhiteSpace(c.SavePath)
+                || !Path.IsPathFullyQualified(c.SavePath)
+                || (!string.IsNullOrWhiteSpace(c.CompletePath) && !Path.IsPathFullyQualified(c.CompletePath))
+                || (c.MaxRatio.HasValue && (!double.IsFinite(c.MaxRatio.Value) || c.MaxRatio < 0))
+                || (c.MaxSeedingTimeMinutes.HasValue && c.MaxSeedingTimeMinutes < 0))
+                || Categories.Select(c => c.Name.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != Categories.Count)
+            {
+                CategorySaveFeedbackText = "Use unique names, absolute save paths and non-negative limits.";
+                return;
+            }
+            foreach (var category in _store.GetCategories()) _engine?.RegisterBlockedExtensions(Array.Empty<string>(), category.Name);
+            foreach (var category in Categories)
+            {
+                category.Name = category.Name.Trim();
+                _engine?.RegisterBlockedExtensions(category.BlockedExtensions.ToArray(), category.Name);
+            }
+            var renames = _categoryOriginalNames.GroupBy(pair => pair.Value, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key,
+                group => Categories.Contains(group.Last().Key) ? group.Last().Key.Name : null, StringComparer.OrdinalIgnoreCase);
+            if (_engine != null)
+                foreach (var pair in _engine.SnapshotCategories())
+                    if (renames.TryGetValue(pair.Value, out string? name) && name != pair.Value) _engine.SetCategory(name, pair.Key);
             _store.ReplaceCategories(Categories.ToList());
+            PersistDesktopCategories();
+            string? selectedName = SelectedCategory?.Name;
+            Categories = new ObservableCollection<Category>(_store.GetCategories());
+            SelectedCategory = Categories.FirstOrDefault(c => c.Name == selectedName);
             _categoriesUserModified = false;
             _logger.Info("UI", "Categories saved");
 
@@ -885,23 +991,24 @@ namespace Controllarr.App.ViewModels
                 ushort port = initialSettings.PreferredListenPort
                               ?? _store.Snapshot().LastKnownGoodPort
                               ?? initialSettings.ListenPortRangeStart;
-                _engine = new TorrentEngine(
+                _engine = await Task.Run(() => new TorrentEngine(
                     initialSettings.DefaultSavePath,
                     _store.ResumeDirectory,
-                    port);
+                    port, initialSettings));
+                await _engine.ApplyAdvancedSettingsAsync(initialSettings);
 
                 // Apply connection-limit / peer-discovery tuning.
-                _engine.ApplyTuning(
+                await Task.Run(() => _engine.ApplyTuning(
                     initialSettings.ConnectionLimits.GlobalMaxConnections,
                     initialSettings.PeerDiscovery.DhtEnabled,
-                    initialSettings.PeerDiscovery.LsdEnabled);
+                    initialSettings.PeerDiscovery.LsdEnabled));
 
                 // Restore category map
                 var catMap = _store.Snapshot().CategoryByHash;
                 _engine.RestoreCategories(catMap);
 
-                // Resume torrents carried over from the previous session/update.
-                await _engine.ResumeAllAsync();
+                _engine.ConfigureQueue(initialSettings.TorrentQueueing);
+                _engine.SetRateLimits(initialSettings.GlobalDownloadKBps, initialSettings.GlobalUploadKBps);
 
                 // Create service-layer components
                 _healthMonitor = new HealthMonitor(_logger);
@@ -939,11 +1046,14 @@ namespace Controllarr.App.ViewModels
                     _logger);
 
                 // Start optional monitors
-                if (initialSettings.VpnEnabled)
-                    _vpnMonitor.Start();
-
-                if (initialSettings.DiskSpaceMinimumGB.HasValue)
-                    _diskSpaceMonitor.Start();
+                _vpnMonitor.Start();
+                _diskSpaceMonitor.Start();
+                if (DesktopTransferAllowed) await _engine.ResumeAllAsync();
+                _rssService = new RssService(_engine, _store, () => DesktopTransferAllowed);
+                _rssService.Start();
+                _bandwidthScheduler = new BandwidthScheduler(engineAdapter, () => _store.GetSettings().BandwidthSchedule, _logger,
+                    () => { var s = _store.GetSettings(); return (s.GlobalDownloadKBps, s.GlobalUploadKBps); });
+                _bandwidthScheduler.Start();
 
                 // ── Recovery + *arr services (consumed by the API/WebUI) ──
                 _recoveryCenter = new RecoveryCenter(_logger);
@@ -1006,12 +1116,17 @@ namespace Controllarr.App.ViewModels
                     // Handle pending command-line magnets/files
                     foreach (var magnet in app.PendingMagnets)
                     {
+                        if (!DesktopTransferAllowed) { _logger.Warn("Boot", "Pending magnet not started because the transfer guard is active."); continue; }
                         try { await _engine.AddMagnet(magnet); }
                         catch (Exception ex) { _logger.Error("Boot", $"Failed to add magnet: {ex.Message}"); }
                     }
                     foreach (var file in app.PendingTorrentFiles)
                     {
-                        try { await _engine.AddTorrentFile(file); }
+                        try
+                        {
+                            if (DesktopTransferAllowed) await _engine.AddTorrentFile(file);
+                            else await _engine.ImportTorrentFileAsync(file, initialSettings.DefaultSavePath);
+                        }
                         catch (Exception ex) { _logger.Error("Boot", $"Failed to add torrent: {ex.Message}"); }
                     }
                 }
@@ -1020,6 +1135,13 @@ namespace Controllarr.App.ViewModels
 
                 // Load initial settings for UI
                 Settings = _store.GetSettings();
+                Categories = new ObservableCollection<Category>(_store.GetCategories());
+                foreach (var category in Categories) _engine.RegisterBlockedExtensions(category.BlockedExtensions.ToArray(), category.Name);
+                Torrents = await Task.Run(_engine.PollStats);
+                SessionStats = _engine.GetSessionStats();
+                VpnStatus = _vpnMonitor?.Snapshot();
+                DiskSpaceStatus = _diskSpaceMonitor?.Snapshot();
+                Desktop.ApplySnapshot(Torrents, Categories.Select(c => c.Name));
 
                 // Read startup registry state (without triggering the setter logic)
                 _launchAtStartup = ReadLaunchAtStartup();
@@ -1043,6 +1165,7 @@ namespace Controllarr.App.ViewModels
         public async Task ShutdownAsync()
         {
             _pollCts?.Cancel();
+            if (_pollTask != null) await _pollTask;
 
             // Stop the HTTP server + port watcher first so no request races shutdown.
             if (_httpServer != null)
@@ -1051,6 +1174,10 @@ namespace Controllarr.App.ViewModels
             }
             _portWatcher?.Stop();
             _portWatcher?.Dispose();
+            if (_rssService != null) await _rssService.StopAsync();
+            _bandwidthScheduler?.Dispose();
+            _vpnMonitor?.Dispose();
+            _diskSpaceMonitor?.Dispose();
 
             if (_engine != null)
             {
@@ -1065,8 +1192,6 @@ namespace Controllarr.App.ViewModels
                 await _engine.Shutdown();
             }
 
-            _vpnMonitor?.Dispose();
-            _diskSpaceMonitor?.Dispose();
             _store?.Dispose();
         }
 
@@ -1122,7 +1247,7 @@ namespace Controllarr.App.ViewModels
             _pollCts = new CancellationTokenSource();
             var token = _pollCts.Token;
 
-            _ = Task.Run(async () =>
+            _pollTask = Task.Run(async () =>
             {
                 while (!token.IsCancellationRequested)
                 {
@@ -1131,7 +1256,7 @@ namespace Controllarr.App.ViewModels
                         await Task.Delay(2000, token);
                         if (token.IsCancellationRequested) break;
 
-                        PollAll();
+                        await PollAllAsync();
                     }
                     catch (OperationCanceledException)
                     {
@@ -1145,15 +1270,19 @@ namespace Controllarr.App.ViewModels
             }, token);
         }
 
-        private void PollAll()
+        private async Task PollAllAsync()
         {
             if (_engine == null || _store == null) return;
 
             // Gather all data off the UI thread
+            var settings = _store.GetSettings();
+            _engine.ConfigureQueue(settings.TorrentQueueing);
+            await _engine.TickQueueAsync(DesktopTransferAllowed);
+            await _engine.CheckpointIfDueAsync();
+            _engine.ApplyPendingFileFilters();
             var torrentStats = _engine.PollStats();
             var sessionStats = _engine.GetSessionStats();
             var categories = _store.GetCategories();
-            var settings = _store.GetSettings();
             var healthIssues = _healthMonitor?.Snapshot() ?? new();
             var postRecords = _postProcessor?.Snapshot() ?? new();
             var seedingLog = _seedingPolicy?.Snapshot() ?? new();
@@ -1193,8 +1322,8 @@ namespace Controllarr.App.ViewModels
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 // Torrents
-                Torrents = new ObservableCollection<TorrentStats>(torrentStats);
-                ApplyTorrentFilter();
+                Torrents = torrentStats;
+                Desktop.ApplySnapshot(torrentStats, categories.Select(c => c.Name));
 
                 // Home dashboard: top-8 most active transfers + counts
                 TopTorrents = new ObservableCollection<TorrentStats>(
@@ -1214,11 +1343,11 @@ namespace Controllarr.App.ViewModels
                 OnPropertyChanged(nameof(UploadSpeedFormatted));
 
                 // Categories (only refresh if user hasn't modified)
-                if (!_categoriesUserModified)
+                if (!_categoriesUserModified && SelectedTab != "Categories")
                     Categories = new ObservableCollection<Category>(categories);
 
                 // Settings (only refresh if user hasn't modified)
-                if (!_settingsUserModified)
+                if (!_settingsUserModified && SelectedTab is not ("Settings" or "Rss"))
                     Settings = settings;
 
                 // Health
@@ -1226,13 +1355,14 @@ namespace Controllarr.App.ViewModels
                 OnPropertyChanged(nameof(HealthIssueCount));
 
                 // Post-processor
-                PostRecords = new ObservableCollection<PostRecord>(postRecords);
+                if (SelectedTab == "PostProcessor") PostRecords = new ObservableCollection<PostRecord>(postRecords);
 
                 // Seeding
-                SeedingLog = new ObservableCollection<SeedEnforcement>(seedingLog);
+                if (SelectedTab == "Seeding") SeedingLog = new ObservableCollection<SeedEnforcement>(seedingLog);
 
                 // Log entries
-                LogEntries = new ObservableCollection<LogEntry>(logEntries);
+                if (SelectedTab == "Log") LogEntries = new ObservableCollection<LogEntry>(logEntries);
+                if (SelectedTab == "Rss" && _rssService != null) RssEntries = new(_rssService.Snapshot());
 
                 // Disk space
                 DiskSpaceStatus = diskStatus;
@@ -1243,6 +1373,7 @@ namespace Controllarr.App.ViewModels
                 VpnStatus = vpnStatus;
                 OnPropertyChanged(nameof(VpnConnected));
                 OnPropertyChanged(nameof(VpnStatusText));
+                OnPropertyChanged(nameof(TorrentNetworkStatusText));
 
                 // Tray hover tooltip (depends on counts, session stats, VPN + disk)
                 OnPropertyChanged(nameof(TrayTorrentSummary));
@@ -1337,8 +1468,13 @@ namespace Controllarr.App.ViewModels
 
         public void BindToAddress(string? ipAddress)
         {
-            // Engine-level binding not directly exposed; VPN monitor handles this
+            throw new NotSupportedException("Binding is enforced by the selected-adapter socket policy, not listen-address overrides.");
         }
+        public bool SupportsInterfaceBinding => true;
+        public bool TorrentNetworkAllowed => _engine.NetworkPolicy.Allowed;
+        public bool NetworkRestartRequired => _engine.NetworkPolicy.RestartRequired;
+        public string? BoundVpnAddress => _engine.NetworkPolicy.RequiresVpn ? _engine.NetworkPolicy.Adapter?.Address.ToString() : null;
+        public void RefreshNetworkPolicy(Settings settings) => _engine.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
         public void Reannounce(string infoHash) =>
             _engine.Reannounce(infoHash).GetAwaiter().GetResult();

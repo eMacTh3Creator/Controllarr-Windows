@@ -10,22 +10,26 @@
   <img src="https://img.shields.io/badge/Windows-10%2F11-blue" alt="Windows 10/11" />
   <img src="https://img.shields.io/badge/.NET_8-net8.0--windows-purple" alt=".NET 8" />
   <img src="https://img.shields.io/badge/x64-supported-green" alt="x64" />
+  <img src="https://img.shields.io/badge/ARM64-experimental-orange" alt="ARM64 experimental" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
 ---
 
-Controllarr for Windows is a full native port of the [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr) BitTorrent client. It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) as its torrent engine and wraps it in a WPF desktop app with a modern Windows 11-style dark theme. It speaks the qBittorrent Web API so existing *arr apps can point at it with zero extra configuration.
+Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Status:** v2.1.15 (aligned 1:1 with [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr) v2.1.15) — production-ready self-contained `.exe` with native WPF UI, a bundled no-build static Web UI served at `:8791`, qBittorrent Web API compatibility, a native Home dashboard, post-processing pipeline, seeding policy, health monitoring, bandwidth scheduler, per-torrent file/tracker/peer detail, a persistent crash-surviving on-disk log, DPAPI credential storage, disk-space-aware auto-pause, *arr re-search integration, VPN-aware kill switch with interface binding, recovery center with rule chaining, GitHub-release update check, and backup/restore. See [Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) for a pre-built binary.
+**Current release:** [v2.2.0](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.0) ships the standalone native WPF desktop, enforced torrent adapter binding and advanced client controls for both x64 and ARM64. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
+
+**Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
 
 ## Download
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
-| **Windows x64** | [Controllarr.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest) | Windows 10/11 (self-contained, no .NET install needed) |
+| **Windows x64** | [Download v2.2.0 ZIP directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-x64.zip) | Intel/AMD Windows 10/11, including x64 Plexboxes |
+| **Windows ARM64** | [Download v2.2.0 ZIP directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-arm64.zip) | Windows 11 on ARM; experimental |
 
-Download `Controllarr.exe` from the [latest release](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest) and run it. No installer required — single portable executable.
+Extract the entire ZIP into a new app folder and launch `Controllarr.exe` there; keep its DLLs alongside it. No installer, separate .NET runtime, Edge or WebView2 is required. Choose x64 for Intel/AMD PCs, not ARM64. The [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/SHA256SUMS.txt) release asset contains checksums. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md).
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -34,13 +38,28 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 ## Features
 
 - **Automatic listen-port reselection** when the forwarded port goes offline (the #1 reason this project exists)
-- **qBittorrent Web API v2** compatibility — Sonarr / Radarr / Overseerr work without custom integration
+- **qBittorrent Web API v2** compatibility — Sonarr / Radarr connect directly; Seerr/Overseerr works through those apps
 - **Bundled browser Web UI** — a no-build static SPA served by the embedded server at <http://127.0.0.1:8791> with a dark Windows 11-style theme, login, and tabs for Home / Torrents / Categories / Settings / Health / Recovery / Post-Processor / Seeding / Log (with per-torrent Files / Trackers / Peers detail)
-- **Native Windows UI** with sidebar navigation: Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, *arr, Log
-- **Native Home dashboard** (default tab) — session metric cards, status pills, quick actions, and a most-active-transfers list
-- **Torrents search box** — filter the torrent list by name, category, or info-hash, with one-click clear
-- **Modern dark theme** — Windows 11-style Fluent Design with glass-morphism effects
-- **Per-torrent detail** — file picker (skip/enable individual files), tracker status, live peer list
+- **Standalone native desktop** — no Edge/WebView2 dependency or browser login required for local control; the remote WebUI/API remains available separately
+- **Large-library transfer workspace** — virtualized rows and columns, stable row identity, debounced search, sortable columns, category navigation and combined status/category/search filters
+- **Bulk torrent management** — Ctrl/Shift selection, select all shown, pause/resume, reannounce, verify files, assign category, move storage, copy magnets and open folders
+- **Safe removal** — right-click or press Delete to choose registration-only removal or permanent file deletion; keep files is the default, and permanent deletion requires another confirmation
+- **Native menus, toolbar and taskbar** — File/Edit/Transfers/View/Tools/Help, shortcuts, aggregate download progress, taskbar thumbnail pause/resume and a working tray menu
+- **Native Home dashboard** — session metric cards, status pills, quick actions, and a most-active-transfers list; Transfers is now the default workspace
+- **Graphite and teal desktop theme** — compact Windows controls, keyboard navigation and resizable transfer/details panes
+- **Per-torrent detail** — persistent file priorities, editable public-torrent trackers and refreshable peer snapshots
+- **Managed active queue** — separate download/seed/total caps, bulk position changes and explicit force-start; queued state is reflected in the qBittorrent API
+- **Speed controls** — global and multi-selected per-torrent limits, with scheduled limits falling back to the global values
+- **Advanced torrent controls** - bulk connection budgets, upload slots and persistent sequential piece selection; settings supply per-torrent defaults and PEX policy
+- **File streaming preview** - a seek-aware, temporary loopback URL for a running torrent; no full-file memory buffering and no public media listener
+- **Torrent encryption and SOCKS5** - prefer/require/disable peer encryption, optional proxy authentication with a DPAPI-encrypted password, remote proxy DNS and no direct fallback
+- **IP blocklist** - bounded local IPv4/IPv6 CIDR lists with merged-range binary lookup, applied to incoming/outgoing peers and tracker/webseed destinations
+- **Torrent creation** — native file/folder wizard, optional private trackers, v1 or hybrid v1/v2 metadata, background hashing and cancellation
+- **Client migration** — import .torrent metadata, uTorrent/BitTorrent resume.dat paths/labels or qBittorrent BT_backup save paths/categories; imports remain paused pending recheck
+- **RSS and watched-folder intake** — HTTP/HTTPS feeds, RSS/Atom enclosures, include/exclude title regex, category/save-folder routing and bounded persistent duplicate history; auto-download is off by default
+- **Saved table layout** — column widths/order and sort choices persist across app restarts
+- **Pause persistence** — manually paused torrents stay paused after restart
+- **Atomic resume checkpoints** - serialized progress writes avoid overlapping startup/state saves; the normal poll loop checkpoints every 30 seconds, with final saves on graceful shutdown
 - **Persistent crash-surviving log** — the runtime log is mirrored to `%AppData%\Controllarr\logs\controllarr.log`, fsync'd on warnings/errors and every few lines (~5 MB rotation keeping one `.1` backup) so it survives an app crash or reboot; a **Reveal Log File** action opens it in Explorer
 - **GitHub-release update check** — a "Check for Updates" action plus a settings toggle query the GitHub Releases API and open the latest release page (replaces the macOS Sparkle updater)
 - **Category-based save paths** and post-complete move rules for Plex library handoff
@@ -49,13 +68,13 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Seeding policy** — per-category or global max ratio / max seed time with hit-and-run protection
 - **Health monitoring** — stall detection with reason codes, auto-reannounce recovery
 - **Bandwidth scheduler** — time-of-day download/upload rate limiting
-- **DPAPI credential storage** for the WebUI/API password (Windows Data Protection API); *arr API keys are stored in the app-state file (`%AppData%\Controllarr\state.json`)
-- **VPN kill switch** — detects TAP-Windows, WireGuard, and Wintun VPN adapters and pauses all torrents instantly when the VPN drops; auto-resumes on reconnect
-- **VPN interface binding** — binds MonoTorrent's outgoing and listen interfaces to the VPN adapter so torrent traffic never leaks through the default route
+- **DPAPI credential storage** for WebUI/API and SOCKS5 passwords without access/password prompts; *arr API keys remain in the app-state file (`%AppData%\Controllarr\state.json`)
+- **Enforced VPN adapter binding** - source-bound IPv4 torrent sockets pinned to the selected Windows interface; unavailable tunnels block all starts, including API/force-start/queue actions. Torrent DNS uses the adapter's DNS servers without system fallback; LAN WebUI/API listeners remain separate
+- **Explicit networking limits** - VPN/proxy modes block IPv6 fallback; DHT/LSD/router mapping are disabled in protected modes, and SOCKS5 disables UDP trackers/incoming peers. Network topology changes block torrents until restart. Keep the provider's kill switch enabled as defense in depth; the app cannot override its LAN firewall rules
 - **Disk-space-aware auto-pause** — monitors free space, pauses downloads when below threshold, and exposes operator recheck in the UI
 - ***arr re-search integration** — proactive Sonarr / Radarr callbacks when torrents stall beyond a configurable threshold
 - **Session auth with expiry** — 1-hour token TTL, CORS support, cookie-based middleware
-- **Backup export / restore** — download the current state as JSON, optionally include encrypted secrets, and restore it from the UI or API
+- **Backup export / restore** — download current state as JSON and restore it from the UI or API; current export buttons include decrypted secrets, so protect backups as sensitive plaintext
 - **Recovery rules and recovery center** — automatically respond to unhealthy torrents with configurable delay-based rule escalation, and keep an action history of automatic/manual recovery attempts
 - **Per-torrent save path** — `savepath` override from *arr apps wired through to MonoTorrent
 - **Magnet URI protocol handler** — registers as the system handler for `magnet:` links
@@ -66,12 +85,12 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 
 ## UI Overview
 
-### Sidebar Navigation (10 tabs)
+### Sidebar Navigation
 
 | Tab | Description |
 |-----|-------------|
-| **Home** | Default dashboard — session metric cards, status pills, quick actions, and a most-active-transfers list |
-| **Torrents** | Main torrent list with a search box (name / category / info-hash) and clear, progress bars, speeds, context menu actions, add magnet/file |
+| **Home** | Optional dashboard with session metrics, status and most-active transfers |
+| **Transfers** | Default native workspace with combined filters, multi-selection, bulk context-menu actions and Files/Trackers/Peers inspector |
 | **Categories** | Category editor — save path, complete path, archive extraction, blocked extensions, ratio/time overrides |
 | **Settings** | Full settings form — WebUI, port range, seeding policy, health, VPN, disk space, *arr, bandwidth, recovery rules, backup/restore |
 | **Health** | Stall detection dashboard — reason classification, duration tracking, clear/recover actions |
@@ -80,27 +99,28 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 | **Seeding** | Seeding enforcement log — ratio/time limit actions with hit-and-run protection |
 | ***arr** | Sonarr/Radarr re-search notification log |
 | **Log** | Filterable log viewer with level coloring (Debug/Info/Warn/Error) and a Reveal Log File action that opens the on-disk log in Explorer |
+| **RSS / Watch Folder** | Feed/rule editor, automatic intake, watch-folder configuration and recent entry status |
 
 ### Status Bar
 
-The top status bar displays:
-- Connection status indicator (green/red dot)
+The bottom status bar displays:
+- Bulk-operation progress and cancellation control
 - Current listen port
 - Download / upload speeds (live)
 - VPN status pill (Connected / Disconnected / Kill Switch Engaged)
-- Disk pressure indicator
+- Normal minimize keeps the taskbar button; closing to tray is configurable in Settings
 
 ---
 
 ## Web UI
 
-In addition to the native WPF app, Controllarr ships a bundled browser Web UI — a no-build static SPA served directly by the embedded server. Open <http://127.0.0.1:8791> in any browser and log in with the default credentials `admin` / `adminadmin`. It carries the same dark Windows 11-style theme and exposes Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs, including per-torrent Files / Trackers / Peers detail. The WebUI assets ship beside `Controllarr.exe`, so there is nothing to build or install separately.
+The browser WebUI is a separate remote-management interface, not the desktop renderer. Open <http://127.0.0.1:8791> and log in with the default credentials `admin` / `adminadmin`, then change them before allowing LAN access. Its assets are embedded in the executable and extracted into the profile on boot, so no loose WebUI folder or separate build is required. The desktop window talks directly to the engine and does not use browser authentication.
 
 ---
 
 ## qBittorrent API Compatibility
 
-Controllarr implements the qBittorrent Web API v2 surface that Sonarr, Radarr, and Overseerr use. No special download client type or plugin is needed — just select **qBittorrent** in your *arr app and point it at `http://<host>:8791`.
+Controllarr implements the qBittorrent Web API v2 surface used by Sonarr and Radarr. No special download client type or plugin is needed — select **qBittorrent** in your *arr app and point it at `http://<host>:8791`. Seerr/Overseerr sends requests through Sonarr/Radarr, not directly to a download client.
 
 ### Supported Endpoints
 
@@ -122,13 +142,15 @@ Extended endpoints at `/api/controllarr/*` for full access to all services:
 | `POST /api/controllarr/port/cycle` | Force listen port cycle |
 | `GET/POST /api/controllarr/categories` | Extended category management (complete path, extract archives, blocked extensions, ratio/time overrides) |
 | `GET/POST /api/controllarr/settings` | Full settings read/write |
-| `GET/POST /api/controllarr/backup` | Export/import state backup |
+| `GET /api/controllarr/backup`; `POST /api/controllarr/backup/import` | Export/import state backup (exports include secrets) |
 | `GET /api/controllarr/health` | Health issue list |
 | `GET /api/controllarr/recovery` | Recovery action log |
 | `GET /api/controllarr/postprocessor` | Post-processor status |
 | `GET /api/controllarr/seeding` | Seeding enforcement log |
 | `GET /api/controllarr/diskspace` | Disk space status |
 | `GET /api/controllarr/vpn` | VPN monitor status |
+| `GET /api/controllarr/network` | Enforced socket policy, bound adapter/address and restart requirement |
+| `GET/POST /api/controllarr/torrents/{hash}/options` | Connection/upload-slot overrides and sequential mode |
 | `GET /api/controllarr/arr` | *arr notification log |
 | `GET /api/controllarr/log` | Application log (query: `limit`) |
 | `GET /api/controllarr/torrents/{hash}/files` | Per-torrent file list |
@@ -146,33 +168,42 @@ Settings are stored in `%AppData%\Controllarr\state.json` and editable from the 
 | `listen_port_range_start` | `49152` | Start of random port range |
 | `listen_port_range_end` | `65000` | End of random port range |
 | `stall_threshold_minutes` | `10` | Minutes of zero download before port cycle |
-| `default_save_path` | `~/Downloads/Controllarr` | Default torrent save path |
-| `webui_host` | `127.0.0.1` | HTTP server bind address |
-| `webui_port` | `8791` | HTTP server port |
-| `webui_username` | `admin` | WebUI / API username |
-| `webui_password` | `adminadmin` | WebUI / API password (DPAPI-encrypted) |
+| `default_save_path` | `%UserProfile%\Downloads\Controllarr` | Default torrent save path |
+| `web_ui_host` | `127.0.0.1` | HTTP server bind address |
+| `web_ui_port` | `8791` | HTTP server port |
+| `web_ui_username` | `admin` | WebUI / API username |
+| `web_ui_password` | `adminadmin` | WebUI / API password (DPAPI-encrypted at rest) |
 | `global_max_ratio` | *unlimited* | Global share ratio limit |
 | `global_max_seeding_time_minutes` | *unlimited* | Global seeding time limit |
 | `seed_limit_action` | `pause` | Action on ratio/time limit: `pause`, `remove_keep_files`, `remove_delete_files` |
 | `minimum_seed_time_minutes` | `60` | Hit-and-run protection minimum |
 | `health_stall_minutes` | `30` | Minutes before health flags a stall |
 | `health_reannounce_on_stall` | `true` | Auto-reannounce when stall detected |
-| `vpn_enabled` | `false` | Enable VPN monitoring |
-| `vpn_kill_switch` | `true` | Pause torrents when VPN drops |
-| `vpn_bind_interface` | `true` | Bind traffic to VPN adapter |
+| `vpn_enabled` | `false` | Enforce selected-adapter torrent sockets and fail-closed starts |
+| `vpn_kill_switch` / `vpn_bind_interface` | `true` | Legacy flags; cannot weaken enabled VPN enforcement |
 | `vpn_interface_prefix` | `TAP` | VPN adapter name prefix (TAP, Wintun, etc.) |
+| `vpn_interface_id` | *automatic* | Explicit Windows tunnel ID overrides name matching; restart required |
+| `torrent_network` | *direct / Prefer encryption* | Encryption, SOCKS5 and local blocklist settings; see the networking guide |
 | `vpn_monitor_interval_seconds` | `5` | VPN check interval |
 | `disk_space_minimum_gb` | *disabled* | Minimum free GB before auto-pause |
 | `arr_re_search_after_hours` | `6` | Hours before triggering *arr re-search |
+| `torrent_queueing` | *disabled* | Active download/seed/total caps; 0 allows none in that class |
+| `global_download_kbps` / `global_upload_kbps` | `0` | Global KiB/s limits; 0 is unlimited |
+| `rss_feeds` | `[]` | Feed rules; auto-download is opt-in |
+| `watch_folder` | *disabled* | Absolute folder containing stable .torrent files to import |
 
 ---
 
 ## Architecture
 
+The native window composes its runtime services directly in `MainViewModel`
+and delegates transfer-list behavior to `DesktopViewModel`. The core also
+contains a separate `ControllarrRuntime` orchestrator for alternate hosts.
+
 ```
 Controllarr.App (WPF)
   └── MainViewModel (@Observable, 2s polling)
-       └── ControllarrRuntime (orchestrator)
+       └── Runtime services + DesktopViewModel
             ├── TorrentEngine (MonoTorrent wrapper)
             │    └── MonoTorrent.ClientEngine
             ├── PersistenceStore → %AppData%\Controllarr\state.json
@@ -184,6 +215,7 @@ Controllarr.App (WPF)
             ├── RecoveryCenter ─── fed by 2s tick loop
             ├── ArrNotifier ─── fed by 2s tick loop
             ├── BandwidthScheduler ─── self-polls every 60s
+            ├── RssService ─── bounded feed checks and watched-folder imports
             ├── DiskSpaceMonitor ─── self-polls every 30s
             ├── VPNMonitor ─── self-polls every 5s
             └── HttpServer (ASP.NET Core Kestrel)
@@ -195,6 +227,7 @@ Controllarr.App (WPF)
 ### Tick Loop (2s cadence)
 
 ```
+engine.TickQueueAsync(transferGuardAllows)
 engine.ApplyPendingFileFilters()
 engine.PollStats() → TorrentStats[]
   → PostProcessor.Tick(torrents)
@@ -243,7 +276,7 @@ Controllarr-Windows/
 │       ├── ViewModels/
 │       │   └── MainViewModel.cs         # Central MVVM ViewModel (2s polling)
 │       └── Views/
-│           ├── TorrentsView.xaml        # Torrent list + toolbar + context menu
+│           ├── TorrentWorkspace.xaml    # Virtualized native transfers + bulk selection + inspector
 │           ├── CategoriesView.xaml      # Category editor
 │           ├── SettingsView.xaml        # Full settings form
 │           ├── HealthView.xaml          # Health issue dashboard
@@ -275,6 +308,8 @@ Controllarr-Windows/
 
 Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later. We stay on the `net8.0-windows` LTS target framework. The repo ships a `NuGet.config` pointing at [nuget.org](https://www.nuget.org/), so a fresh clone restores all dependencies (MonoTorrent, SharpCompress, ASP.NET Core) without any extra feed configuration.
 
+Run `dotnet run --project tests/Controllarr.Desktop.Tests -c Release` for headless catalog/batch tests and `dotnet run --project tests/Controllarr.Windows.UI.Tests -c Release` on Windows for native XAML/selection tests. The Windows CI workflow builds and uploads complete-folder architecture packages but does not publish a GitHub release. Cross-building from macOS/Linux requires `-p:EnableWindowsTargeting=true`; it is not a substitute for Windows runtime testing. With Node.js, `node scripts/test-site.cjs` checks the site's architecture-specific downloads and fallback behavior.
+
 ```bash
 git clone https://github.com/eMacTh3Creator/Controllarr-Windows.git
 cd Controllarr-Windows
@@ -282,13 +317,14 @@ cd Controllarr-Windows
 # Debug build
 dotnet build
 
-# Release build (self-contained single-file .exe)
+# Self-contained Windows packages: publish both architectures
 dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true -o publish/win-x64
+  -p:PublishSingleFile=false -o publish/win-x64
+dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r win-arm64 --self-contained true \
+  -p:PublishSingleFile=false -o publish/win-arm64
 ```
 
-The resulting `publish/win-x64/Controllarr.exe` is a fully self-contained executable — no .NET runtime installation required. The bundled Web UI assets ship beside the `.exe` in the same output folder.
+Distribute each entire output folder as a separate ZIP, not just its EXE. No .NET runtime installation is required. WebUI assets are embedded in the app. On Windows, `scripts/package-windows.ps1` builds both ZIPs and SHA-256 checksums; CI also produces both architecture artifacts without publishing a release.
 
 ### Open in Visual Studio
 
@@ -307,11 +343,11 @@ Controllarr detects VPN adapters by scanning network interfaces for adapters wit
 
 When VPN is enabled in settings:
 
-1. **VPN connected** — Controllarr binds all torrent traffic to the VPN adapter IP
-2. **VPN disconnected + kill switch on** — all active torrents are instantly paused
-3. **VPN reconnects** — paused torrents automatically resume
+1. **VPN connected** - torrent sockets use the selected adapter's IPv4 source address and Windows interface index.
+2. **VPN unavailable** - policy-owned sockets close and all torrent starts are blocked, including API and force-start actions. Legacy bind/kill-switch flags cannot weaken enabled enforcement.
+3. **VPN reconnects** - eligible queued torrents recover; manually paused torrents stay paused.
 
-This ensures torrent traffic **never leaks** through your default network interface.
+Select your actual VPN tunnel, not Ethernet/Wi-Fi. VPN/proxy/blocklist topology changes require an app restart. Protected IPv6, DHT/LSD and router mapping are disabled; use tracker-backed torrents. The LAN WebUI/API stays separate, but provider and Windows firewall rules still apply. Keep the provider's kill switch enabled as defense in depth. This is app-level socket enforcement, not an OS-wide leak guarantee; read [NETWORKING.md](docs/NETWORKING.md).
 
 ---
 

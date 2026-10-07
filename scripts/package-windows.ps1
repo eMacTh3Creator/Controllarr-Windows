@@ -1,0 +1,37 @@
+param([string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'publish\packages'))
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$root = Split-Path $PSScriptRoot -Parent
+$OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+Push-Location $root
+try {
+    & dotnet build Controllarr.sln -c Release --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+    & dotnet run --project tests/Controllarr.Desktop.Tests -c Release
+    if ($LASTEXITCODE -ne 0) { throw 'Desktop logic/engine tests failed' }
+    & dotnet run --project tests/Controllarr.Windows.UI.Tests -c Release
+    if ($LASTEXITCODE -ne 0) { throw 'WPF tests failed' }
+    $project = [xml](Get-Content src/Controllarr.App/Controllarr.App.csproj)
+    $version = ($project.Project.PropertyGroup | Where-Object Version | Select-Object -First 1).Version
+    New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
+    $checksums = @()
+    foreach ($runtime in @('win-x64', 'win-arm64')) {
+        $stage = Join-Path $OutputDirectory "stage-$runtime-$([guid]::NewGuid().ToString('N'))"
+        & dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r $runtime --self-contained true -p:PublishSingleFile=false -o $stage --nologo
+        if ($LASTEXITCODE -ne 0) { throw "Publish failed: $runtime" }
+        foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md')) {
+            Copy-Item (Join-Path 'docs' $guide) (Join-Path $stage $guide)
+        }
+        Copy-Item LICENSE (Join-Path $stage 'LICENSE')
+        $notes = "RELEASE_NOTES_v$version.md"
+        if (Test-Path $notes) { Copy-Item $notes (Join-Path $stage $notes) }
+        $archive = Join-Path $OutputDirectory "Controllarr-$version-$runtime.zip"
+        if (Test-Path $archive) { throw "Package already exists: $archive. Choose another output folder to preserve the previous build." }
+        Compress-Archive -Path "$stage\*" -DestinationPath $archive
+        $checksums += "$((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($archive))"
+        Write-Output "Packaged $archive"
+        # Only this invocation's generated staging folder is removed.
+        Remove-Item $stage -Recurse -Force
+    }
+    $checksums | Set-Content (Join-Path $OutputDirectory 'SHA256SUMS.txt') -Encoding ASCII
+} finally { Pop-Location }

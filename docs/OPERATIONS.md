@@ -1,8 +1,8 @@
 # Operations Guide
 
 This doc covers the operator-focused foundations available in Controllarr for
-Windows v2.1.15. This release aligns the Windows port 1:1 with macOS Controllarr
-v2.1.15, so the operator workflows below mirror the macOS guide while reflecting
+Windows. The current release is v2.2.0, including the native desktop redesign
+and enforced torrent adapter binding. The operator workflows below reflect
 the Windows engine, paths, and tooling.
 
 ## Performance and Scale
@@ -13,17 +13,17 @@ state:
 - torrent/session snapshots are cached briefly inside the engine so the runtime,
   native WPF UI, bundled Web UI, and API can reuse one MonoTorrent scan instead
   of forcing several back-to-back scans
-- the runtime fans post-processing, seeding policy, and health analysis out in
-  parallel after a shared torrent snapshot is collected
-- the native app splits fast-changing state from admin state, so
-  torrents/session/health stay fresh while categories, logs, and recovery
-  history refresh on a slower cadence
+- service ticks reuse the snapshot in a coordinated loop; they are not a
+  fully parallel execution pipeline
+- the native desktop preserves row identity and selection, debounces search,
+  batches structural list changes, and publishes heavier log/post/seeding
+  tables when their pages are active
 - the bundled Web UI refreshes the active tab instead of pulling every table on
   every 2-second interval
 
 If you are running especially large libraries:
 
-- prefer the published self-contained `Controllarr.exe` (Release build) over a
+- prefer the published self-contained app folder (Release build) over a
   Debug build for any real load testing
 - keep the native window closed and run from the system tray for always-on nodes
   that do not need the dashboard open all day
@@ -40,8 +40,10 @@ detail.
 
 ## Running Controllarr
 
-Controllarr for Windows ships as a single self-contained `Controllarr.exe`
-(win-x64). No .NET install is required.
+Releases before v2.2.0 used a single self-contained x64 EXE. v2.2.0
+provides separate self-contained x64 and ARM64 ZIP folders;
+extract all files and keep the DLLs alongside `Controllarr.exe`. No .NET install
+is required. ARM64 remains experimental; see [INSTALL.md](INSTALL.md).
 
 - Launch `Controllarr.exe` to start the WPF app, the embedded Kestrel HTTP
   server, and the bundled Web UI together.
@@ -54,10 +56,12 @@ Controllarr for Windows ships as a single self-contained `Controllarr.exe`
 
 ### First-Run / SmartScreen
 
-The `.exe` is unsigned. On first run Windows SmartScreen may show a warning;
+The packages are unsigned. Download only from the project and verify the
+release checksum. On first run Windows SmartScreen may show a warning;
 choose **More info -> Run anyway**. Alternatively, clear the mark-of-the-web
 before launching: right-click `Controllarr.exe` -> **Properties** -> tick
-**Unblock**, or run `Unblock-File .\Controllarr.exe` in PowerShell.
+**Unblock**, or run `Unblock-File .\Controllarr.exe` in PowerShell. Only do this
+for a verified, trusted download; do not disable Windows security globally.
 
 ### LAN Access
 
@@ -82,18 +86,20 @@ Settings view and the Web UI Settings tab.
 
 ### How To Use It
 
-- Set **Settings -> Web UI -> Bind host** (`webui_host`) to `0.0.0.0` to listen
+- Set **Settings -> Web UI -> Bind host** (`web_ui_host`) to `0.0.0.0` to listen
   on all interfaces, or to a specific LAN IP such as `192.168.1.122`
 - Save settings and restart Controllarr so the HTTP server rebinds
 - Point remote clients at the recommended LAN URL (the machine's LAN IP plus the
-  configured `webui_port`, e.g. `http://192.168.1.122:8791`), not `127.0.0.1`
+  configured `web_ui_port`, e.g. `http://192.168.1.122:8791`), not `127.0.0.1`
   and not `0.0.0.0`
 
 ### VPN Caveat
 
-- Controllarr keeps torrent traffic on the VPN adapter separately from the
-  Web UI/API listener, so binding the Web UI to `0.0.0.0` does not push the Web
-  UI through the VPN
+- In v2.2.0, the WebUI/API listener is separate from enforced torrent
+  adapter binding. Select the actual tunnel, save and restart. This is app-level
+  socket enforcement, not an OS firewall. Use the provider's kill switch and
+  verify routes/LAN access; setting the WebUI host cannot bypass provider policy.
+  Older published v2.1.19 uses detection/auto-pause instead of this enforcement.
 - If diagnostics say remote access is configured correctly but other machines
   still cannot connect while the VPN is on, the VPN client is likely blocking
   inbound LAN traffic. Check the VPN client's LAN-allow/local-network setting and
@@ -139,17 +145,18 @@ Controllarr detects VPN adapters by scanning Windows network interfaces with
 - any adapter whose name starts with the configured `vpn_interface_prefix`
   (default `TAP`)
 
-When VPN is enabled:
+In v2.2.0, an explicit adapter selection overrides
+automatic matching. When enforcement is enabled, torrent IPv4 sockets bind its
+address and outgoing interface. A missing adapter closes existing sockets and
+blocks add/resume/force-start/queue actions; reconnection permits queued work,
+but never resumes user-paused torrents. Legacy pause/bind flags do not weaken
+enforcement. The WebUI listener remains independent.
 
-1. **VPN connected** — MonoTorrent's outgoing and listen interfaces are bound to
-   the VPN adapter IP, so torrent traffic never leaks through the default route
-2. **VPN disconnected + kill switch on** — all active torrents are instantly
-   paused
-3. **VPN reconnects** — paused torrents automatically resume
-
-If your VPN client uses an adapter name that does not match the built-in
-patterns, set `vpn_interface_prefix` to that adapter's name prefix so detection
-and binding work correctly.
+If your VPN uses an unfamiliar adapter name, select it from the native adapter
+list rather than guessing a prefix. Topology changes block torrents until
+restart. VPN mode uses bound TCP DNS and rejects IPv6 fallback. DHT/LSD/router
+mapping are disabled in protected modes. See [NETWORKING.md](NETWORKING.md)
+for SOCKS5, encryption, blocklists, limits and production verification steps.
 
 ## Automatic Updates (GitHub Releases)
 
@@ -160,31 +167,32 @@ replaces the Sparkle update framework used by the macOS app.
   toggle controls automatic checking.
 - When a newer release is found, Controllarr opens the latest release page in
   your browser rather than silently installing the update.
-- Updating is a manual download-and-replace: close Controllarr, replace the
-  existing `Controllarr.exe` with the new one, and relaunch. Your settings in
-  `%AppData%\Controllarr\state.json` are preserved across the swap.
+- Updating is a manual download-and-replace: close Controllarr, extract the
+  matching architecture ZIP into a new application folder, and relaunch from
+  that folder. Do not replace just the EXE or mix runtime DLLs from versions.
+  Your separate `%AppData%\Controllarr` profile is preserved; back it up first.
 - Because the `.exe` is unsigned, re-apply the SmartScreen / **Unblock** step
   from **First-Run / SmartScreen** above the first time you run a freshly
   downloaded build.
 
 ## Backup, Export, and Restore
 
-The Web UI Settings tab includes a **Backup & restore** panel (also exposed via
-`GET/POST /api/controllarr/backup`).
+The native File menu and Web UI Settings tab include backup/restore (also
+exposed via `GET /api/controllarr/backup` and
+`POST /api/controllarr/backup/import`).
 
 ### Export
 
 - Use **Export backup** to download the current Controllarr state as JSON.
-- Turn on **Include saved secrets in exports** if you want the backup to carry
-  the Web UI password and saved *arr API keys.
-- A redacted export is still useful for categories, save-path routing, seeding
-  policy, health settings, and other non-secret state.
-- Only the Web UI / API password is encrypted at rest via Windows DPAPI (in
-  `credentials.dat`); *arr API keys are stored in the app-state file
-  (`state.json`). DPAPI keys are tied to the user account on the original
-  machine, so the encrypted Web UI password in a secrets-included backup is only
-  directly portable on the same Windows user profile. Moving to a different user
-  or machine means re-entering the Web UI password after import.
+- Current native/WebUI/API exports include plaintext Web UI and SOCKS5 passwords
+  and saved *arr keys. Treat exported JSON as a secret, not a public diagnostic
+  attachment. The store also supports redacted exports programmatically; the
+  current export buttons do not offer that option.
+- Web UI and SOCKS5 passwords are encrypted at rest with current-user Windows
+  DPAPI in `credentials.dat`; *arr keys remain in `state.json`. DPAPI access
+  does not produce per-access password/permission prompts. A copied encrypted
+  credentials file is not portable to another Windows user or machine.
+  Secrets-included JSON imports re-encrypt passwords for the importing user.
 
 ### Import
 
@@ -338,7 +346,8 @@ in-app Log tab:
 All persisted operator settings and categories live in
 `%AppData%\Controllarr\state.json` (this includes the *arr API keys). Writes are
 debounced. When migrating a host, copy this file to carry over your
-configuration, including the *arr API keys. Only the DPAPI-encrypted Web UI
-password (in `credentials.dat`) does not transfer to a different Windows user
-profile — it resets to the default `adminadmin` and must be re-entered (or use a
-secrets-included backup on the same user profile).
+configuration, including the *arr API keys. DPAPI-encrypted WebUI and SOCKS5
+passwords in `credentials.dat` do not transfer to another Windows user/profile.
+Re-enter them: the WebUI resets to `adminadmin`, while an unavailable proxy
+password fails authentication without direct fallback. Secrets-included backups
+contain plaintext secrets and must be protected. DPAPI does not prompt on access.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Controllarr for Windows is a self-contained torrent control plane for Sonarr, Radarr, Overseerr, and Plex workflows.">
+  <meta name="description" content="Controllarr v2.2.0: a native Windows torrent desktop with bulk controls, VPN binding and a Sonarr/Radarr API. Download x64 or experimental ARM64.">
   <meta name="theme-color" content="#071117">
   <meta property="og:title" content="Controllarr for Windows">
   <meta property="og:description" content="Windows-native torrent control for your *arr stack.">
@@ -226,7 +226,7 @@
         <a href="#features">Features</a>
         <a href="#release">Latest</a>
         <a href="#install">Install</a>
-        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Docs</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Docs</a>
       </div>
       <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows">GitHub</a>
     </div>
@@ -237,20 +237,21 @@
       <div class="shell hero-grid">
         <div>
           <h1>Windows-native torrent control for your <span class="arr">*arr</span> stack.</h1>
-          <p class="lead">Controllarr for Windows is a self-contained BitTorrent client and qBittorrent-compatible API target built for Sonarr, Radarr, Overseerr, Plex, and operators who want a Windows box to behave like a proper media-download node. One <code>Controllarr.exe</code> &mdash; no .NET install required.</p>
+          <p class="lead">A standalone BitTorrent desktop with a qBittorrent-compatible API for Sonarr and Radarr. Control your whole library locally, or let your media server manage it over the LAN. Extract the complete app ZIP &mdash; no .NET or WebView2 install required.</p>
           <div class="actions">
-            <a class="button primary" data-dl href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Download latest .exe</a>
+            <a class="button primary" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-x64.zip">Download x64 ZIP</a>
+            <a class="button quiet" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-arm64.zip">ARM64 ZIP &middot; experimental</a>
             <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">All releases</a>
           </div>
           <div class="proof" aria-label="Project highlights">
             <span><i class="dot"></i>Windows 10/11</span>
-            <span><i class="dot"></i>Self-contained .exe &mdash; no .NET install</span>
+            <span><i class="dot"></i>v2.2.0 &middot; native WPF desktop</span>
             <span><i class="dot"></i>MIT licensed</span>
             <span><i class="dot"></i>qBittorrent Web API v2</span>
           </div>
         </div>
 
-        <div class="mockup" aria-label="Controllarr dashboard preview">
+        <div class="mockup" aria-label="Illustrative dashboard, not a throughput benchmark">
           <div class="window">
             <div class="titlebar">
               <span class="title"><i class="accent"></i><b>Controllarr</b> &mdash; Home</span>
@@ -268,7 +269,7 @@
                 <span class="side-item">Categories</span>
                 <span class="side-item">Health</span>
                 <span class="side-item">Log</span>
-                <div class="status-card">VPN connected<br>Wintun bound<br><span class="green">No torrent leak path</span></div>
+                <div class="status-card">VPN adapter selected<br>Wintun bound<br><span class="green">Torrent network guard</span></div>
               </aside>
               <div class="main-panel">
                 <h2>Session Overview</h2>
@@ -301,7 +302,7 @@
       <div class="shell">
         <div class="section-title">
           <h2>Built for control. Designed for scale.</h2>
-          <p>A focused Windows app for people who want native WPF UI, a bundled remote Web UI, *arr compatibility, VPN-aware torrent traffic, and stability under large libraries &mdash; all from a single self-contained executable.</p>
+          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.2.0 brings virtualized large-library management in self-contained x64 and experimental ARM64 packages.</p>
         </div>
 
         <div class="feature-rail">
@@ -309,7 +310,7 @@
             <div class="icon-orb">VPN</div>
             <div>
               <h3>VPN-aware routing</h3>
-              <p>Bind torrent traffic to the VPN adapter, pause on VPN drops with a kill switch, and keep the WebUI/API listener available for LAN clients. Detects TAP-Windows, WireGuard, and Wintun interfaces automatically.</p>
+              <p>Pin torrent sockets and DNS to your selected VPN adapter; missing adapters block starts without ordinary-interface fallback. LAN WebUI/API traffic stays separate. Keep your provider's kill switch on: its LAN policy and Windows firewall rules still apply. Real-provider leak and reconnect validation remains outstanding.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>Wintun</strong><span>adapter watch</span></div>
@@ -322,7 +323,7 @@
             <div class="icon-orb">qb</div>
             <div>
               <h3>qBittorrent-compatible API</h3>
-              <p>Point Sonarr, Radarr, and Overseerr at Controllarr using the qBittorrent download-client type. No brittle scraping or custom downloader plugin required. Default login <code>admin / adminadmin</code>.</p>
+              <p>Point Sonarr and Radarr at Controllarr using the qBittorrent download-client type; Seerr/Overseerr works through those apps. No custom downloader plugin required. Change the default <code>admin / adminadmin</code> login before LAN use.</p>
             </div>
             <div class="code-card">
 <pre>POST /api/v2/torrents/add
@@ -337,7 +338,7 @@ GET /api/v2/torrents/info</pre>
             <div class="icon-orb">1K</div>
             <div>
               <h3>Large-library stability</h3>
-              <p>Automatic listen-port cycling on stall, disk-space-aware auto-pause, a crash-surviving on-disk log, and conservative resolver protection so VPN/DNS tracker lookups cannot spike under very large libraries.</p>
+              <p>Incremental row updates, shared engine snapshots, atomic resume checkpoints and bounded transport work reduce avoidable overhead. The WPF harness virtualizes 10,000 rows; mixed-library load and long-duration stability still need real-world validation.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>1,000+</strong><span>torrent guidance</span></div>
@@ -350,7 +351,7 @@ GET /api/v2/torrents/info</pre>
             <div class="icon-orb">UI</div>
             <div>
               <h3>Native WPF + bundled Web UI</h3>
-              <p>Use the WPF window with its Home dashboard, the system tray icon, or the bundled dark Windows 11-style Web UI served by the embedded Kestrel server from any machine on your network.</p>
+              <p>Manage categories and multi-selected transfers with native menus, a Files/Trackers/Peers inspector and safe removal dialogs. Use tray/taskbar controls locally, or the bundled WebUI and API over your configured LAN listener.</p>
             </div>
             <div class="code-card">
 <pre>Local:  http://127.0.0.1:8791
@@ -366,18 +367,18 @@ Login:  admin / adminadmin</pre>
       <div class="shell">
         <div class="release-band">
           <div>
-            <h2>What's new in v2.1.15</h2>
-            <p class="lead">The Windows port now aligns 1:1 with macOS Controllarr v2.1.15: a single self-contained <code>Controllarr.exe</code>, a new Home dashboard, a bundled browser Web UI, and a GitHub-release update check.</p>
+            <h2>A standalone desktop, not a browser portal</h2>
+            <p class="lead">Available now in v2.2.0: bulk transfer control, managed queues, RSS, torrent creation/migration, enforced VPN binding, SOCKS5, encryption, IP filtering and sequential/streaming previews. Both CPU builds include the same native desktop. ARM64 remains experimental after an earlier single-file API crash; complete-folder prechecks passed, but no root-cause fix or multi-day soak is claimed.</p>
             <div class="actions">
-              <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Release notes</a>
-              <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Documentation</a>
+              <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.0">Release notes</a>
+              <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Documentation</a>
             </div>
           </div>
           <ul class="release-list">
-            <li><span class="amber">01</span><span><b>Self-contained executable.</b> One win-x64 <code>Controllarr.exe</code> on net8.0-windows &mdash; no .NET runtime install needed. WPF UI plus an embedded ASP.NET Core Kestrel server.</span></li>
+            <li><span class="amber">01</span><span><b>Two self-contained ZIPs.</b> x64 for Intel/AMD PCs; experimental ARM64 for Windows on ARM. Extract all files and run <code>Controllarr.exe</code> &mdash; no separate .NET runtime.</span></li>
             <li><span class="amber">02</span><span><b>Bundled Web UI.</b> A no-build dark Windows 11-style SPA served at <code>http://127.0.0.1:8791</code> with Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs.</span></li>
-            <li><span class="amber">03</span><span><b>New Home dashboard + search.</b> Session metric cards, status pills, quick actions, most-active transfers, and a torrents search box by name, category, or info-hash.</span></li>
-            <li><span class="amber">04</span><span><b>Crash-surviving log + update check.</b> A persistent rotating log under <code>%LOCALAPPDATA%\Controllarr\logs</code> plus a "Check for Updates" action backed by the GitHub Releases API.</span></li>
+            <li><span class="amber">03</span><span><b>Safe bulk workflows.</b> Filter by category, select many torrents, and use right-click or Delete to keep files or permanently remove them with another confirmation. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/DESKTOP.md">desktop guide</a>.</span></li>
+            <li><span class="amber">04</span><span><b>Operator tools.</b> Persistent rotating logs under <code>%APPDATA%\Controllarr\logs</code>, backups, VPN/disk monitoring and GitHub release update checks.</span></li>
           </ul>
         </div>
       </div>
@@ -387,18 +388,18 @@ Login:  admin / adminadmin</pre>
       <div class="shell">
         <div class="section-title">
           <h2>Get started in minutes.</h2>
-          <p>Download the latest <code>Controllarr.exe</code>, run it, and point your *arr apps at the qBittorrent-compatible API. No installer, no .NET download.</p>
+          <p>Download your CPU's ZIP, extract the complete folder, and run <code>Controllarr.exe</code>. No installer, no .NET download. Back up your existing profile before upgrading.</p>
         </div>
         <div class="steps">
           <article class="step">
             <div class="step-num">1</div>
             <h3>Download</h3>
-            <p>Grab <a data-dl href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest"><code>Controllarr-&lt;version&gt;.exe</code></a> &mdash; this link always serves the newest release, named with its version. Fully self-contained.</p>
+            <p>Get the <a data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-x64.zip">Intel/AMD x64 ZIP</a> or <a data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-arm64.zip">experimental ARM64 ZIP</a>. Verify it against <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/SHA256SUMS.txt">SHA256SUMS.txt</a>.</p>
           </article>
           <article class="step">
             <div class="step-num">2</div>
-            <h3>Run</h3>
-            <p>Double-click <code>Controllarr.exe</code>. On first launch, Windows SmartScreen may appear &mdash; see the note below to run it.</p>
+            <h3>Extract &amp; run</h3>
+            <p>Stop the old app. Extract every file into a new folder, then launch <code>Controllarr.exe</code>. Do not copy just the EXE; keep its runtime DLLs together. Your separate AppData profile stays intact.</p>
           </article>
           <article class="step">
             <div class="step-num">3</div>
@@ -413,13 +414,13 @@ Login:  admin / adminadmin</pre>
         </div>
 
         <div class="install-note">
-          <b>Running an unsigned executable.</b> Controllarr.exe is not code-signed, so Windows may warn on first launch. If Microsoft Defender SmartScreen appears, click <code>More info</code> then <code>Run anyway</code>. Alternatively, clear the mark-of-the-web before launching: right-click <code>Controllarr.exe</code> &rarr; <code>Properties</code> &rarr; tick <code>Unblock</code> &rarr; <code>OK</code>, or run in PowerShell: <code>Unblock-File .\Controllarr.exe</code>
+          <b>Unsigned, not a verified publisher.</b> Windows may warn on first launch. Only for a trusted project download whose checksum you verified, use SmartScreen's <code>More info</code> then <code>Run anyway</code>, or the file's <code>Properties &rarr; Unblock</code> option. Never disable Defender or the firewall globally. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/INSTALL.md">install guide</a> and <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/NATIVE_DESKTOP_VALIDATION.md">validation limits</a> before production migration.
         </div>
 
         <div class="connect-band">
           <div>
-            <h3>Connecting Sonarr / Radarr / Overseerr</h3>
-            <p>In Sonarr, Radarr, or Overseerr, add a download client of type <b>qBittorrent</b> and point it at Controllarr. Credentials are stored locally with Windows DPAPI. To reach Controllarr from other machines on your LAN, set the WebUI bind host to <code>0.0.0.0</code> and restart, then use the PC's LAN IP in place of <code>127.0.0.1</code>.</p>
+            <h3>Connecting Sonarr / Radarr</h3>
+            <p>Add a download client of type <b>qBittorrent</b> in Sonarr or Radarr; Seerr/Overseerr sends requests through them. WebUI/SOCKS5 passwords use Windows DPAPI without per-access permission prompts. For remote LAN clients, configure the WebUI bind host, restart, and use the PC's LAN IP instead of <code>127.0.0.1</code>. Change default credentials and scope firewall access to your LAN.</p>
           </div>
           <dl>
             <dt>Client type</dt><dd>qBittorrent</dd>
@@ -440,41 +441,12 @@ Login:  admin / adminadmin</pre>
       <div class="footer-links">
         <a href="https://github.com/eMacTh3Creator/Controllarr-Windows">GitHub</a>
         <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Releases</a>
-        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/docs/README.md">Docs</a>
-        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/main/LICENSE">MIT License</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Docs</a>
+        <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/LICENSE">MIT License</a>
       </div>
     </div>
   </footer>
 
-  <script>
-    // Resolve the newest release's versioned .exe asset on click, so the
-    // download is always the latest build *and* keeps its version in the
-    // filename (e.g. Controllarr-2.1.15.exe). Falls back to the releases page
-    // if the API is unavailable or JavaScript is disabled (the href).
-    (function () {
-      var REPO = 'eMacTh3Creator/Controllarr-Windows';
-      function resolve(e) {
-        var link = e.currentTarget;
-        e.preventDefault();
-        link.setAttribute('aria-busy', 'true');
-        fetch('https://api.github.com/repos/' + REPO + '/releases/latest', {
-          headers: { 'Accept': 'application/vnd.github+json' }
-        })
-          .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-          .then(function (data) {
-            var assets = data.assets || [];
-            var exe = assets.filter(function (a) { return /\.exe$/i.test(a.name); })[0];
-            window.location.href = exe
-              ? exe.browser_download_url
-              : (data.html_url || link.href);
-          })
-          .catch(function () { window.location.href = link.href; })
-          .finally(function () { link.removeAttribute('aria-busy'); });
-      }
-      document.querySelectorAll('a[data-dl]').forEach(function (a) {
-        a.addEventListener('click', resolve);
-      });
-    })();
-  </script>
+  <script src="assets/downloads.js" defer></script>
 </body>
 </html>

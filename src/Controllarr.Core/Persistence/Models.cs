@@ -477,6 +477,12 @@ namespace Controllarr.Core.Persistence
         [JsonPropertyName("vpn_interface_prefix")]
         public string VpnInterfacePrefix { get; set; } = "TAP";
 
+        [JsonPropertyName("vpn_interface_id")]
+        public string VpnInterfaceId { get; set; } = "";
+
+        [JsonPropertyName("torrent_network")]
+        public TorrentNetworkSettings TorrentNetwork { get; set; } = new();
+
         [JsonPropertyName("vpn_monitor_interval_seconds")]
         public int VpnMonitorIntervalSeconds { get; set; } = 5;
 
@@ -524,6 +530,39 @@ namespace Controllarr.Core.Persistence
         public DuplicateTorrentPolicy DuplicateTorrentPolicy { get; set; } = DuplicateTorrentPolicy.MergeTrackers;
 
         public Settings() { }
+        [JsonPropertyName("rss_feeds")]
+        public List<RssFeed> RssFeeds { get; set; } = new();
+        [JsonPropertyName("global_download_kbps")]
+        public int GlobalDownloadKBps { get; set; }
+        [JsonPropertyName("global_upload_kbps")]
+        public int GlobalUploadKBps { get; set; }
+        [JsonPropertyName("watch_folder")]
+        public string WatchFolder { get; set; } = "";
+    }
+
+    public sealed class RssFeed
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public string Name { get; set; } = "New feed";
+        public string Url { get; set; } = "";
+        public bool Enabled { get; set; } = true;
+        public bool AutoDownload { get; set; }
+        public string IncludePattern { get; set; } = "";
+        public string ExcludePattern { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string SavePath { get; set; } = "";
+        public int IntervalMinutes { get; set; } = 15;
+    }
+
+    public sealed class TorrentNetworkSettings
+    {
+        public string Encryption { get; set; } = "Prefer";
+        public bool ProxyEnabled { get; set; }
+        public string ProxyHost { get; set; } = "";
+        public int ProxyPort { get; set; } = 1080;
+        public string ProxyUsername { get; set; } = "";
+        public string ProxyPassword { get; set; } = "";
+        public string BlocklistPath { get; set; } = "";
     }
 
     public class PersistedState

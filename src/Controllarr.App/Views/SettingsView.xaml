@@ -5,7 +5,7 @@
                     xmlns:h="clr-namespace:Controllarr.App.Helpers">
 
     <DataTemplate x:Key="SettingsViewTemplate">
-        <DockPanel>
+        <DockPanel h:ValidationGate.Enabled="True">
             <!-- ══ Bottom action bar ══════════════════════════════ -->
             <Border DockPanel.Dock="Bottom"
                     Background="{StaticResource SurfaceBrush}"
@@ -23,6 +23,8 @@
                             Margin="0,0,8,0"/>
                     <Button Style="{StaticResource AccentButton}"
                             Content="Save Settings"
+                            IsEnabled="{Binding Path=(h:ValidationGate.IsValid), RelativeSource={RelativeSource AncestorType=DockPanel}}"
+                            ToolTip="Fix any highlighted invalid inputs before saving."
                             Command="{Binding SaveSettingsCommand}"/>
                 </StackPanel>
             </Border>
@@ -36,6 +38,8 @@
 
                     <TextBlock Text="Settings" Style="{StaticResource HeaderText}"
                                Margin="0,0,0,20"/>
+                    <TextBlock Text="Fix any red-highlighted inputs before saving. Server address and listening-port changes require a restart."
+                               Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                     <!-- ── General ──────────────────────────────── -->
                     <GroupBox Header="General">
@@ -43,6 +47,12 @@
                             <CheckBox Content="Launch Controllarr at Windows startup"
                                       IsChecked="{Binding LaunchAtStartup}"
                                       Margin="0,0,0,16"/>
+                            <CheckBox Content="Close window to the system tray (keep transfers running)"
+                                      IsChecked="{Binding Settings.UiPreferences.CloseToTray}" Margin="0,0,0,8"/>
+                            <CheckBox Content="Start with the window hidden"
+                                      IsChecked="{Binding Settings.UiPreferences.StartMinimized}" Margin="0,0,0,8"/>
+                            <CheckBox Content="Automatically check for updates"
+                                      IsChecked="{Binding Settings.UiPreferences.AutomaticUpdateChecks}" Margin="0,0,0,16"/>
 
                             <TextBlock Text="Default Save Path" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
                             <Grid>
@@ -65,6 +75,38 @@
                                 <TextBox Text="{Binding Settings.ListenPortRangeEnd, UpdateSourceTrigger=PropertyChanged}"
                                          Width="80"/>
                             </StackPanel>
+                            <TextBlock Text="Preferred forwarded port (blank for automatic)" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
+                            <TextBox Text="{Binding Settings.PreferredListenPort, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Restart after changing the preferred port or server bind address." Style="{StaticResource SecondaryText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Connections and discovery">
+                        <StackPanel>
+                            <TextBlock Text="Global peer connection limit" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Settings.ConnectionLimits.GlobalMaxConnections, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Default connections per torrent (1-10000)" Style="{StaticResource SecondaryText}" Margin="0,12,0,4"/>
+                            <TextBox Text="{Binding Settings.ConnectionLimits.MaxConnectionsPerTorrent, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Default upload slots per torrent (2-1000, not a global slot cap)" Style="{StaticResource SecondaryText}" Margin="0,12,0,4"/>
+                            <TextBox Text="{Binding Settings.ConnectionLimits.GlobalMaxUploadSlots, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="A large library does not need thousands of peer connections. Start with 200 and measure CPU, memory and disk usage." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,12"/>
+                            <CheckBox Content="Enable DHT" IsChecked="{Binding Settings.PeerDiscovery.DhtEnabled}" Margin="0,4"/>
+                            <CheckBox Content="Enable peer exchange (PEX)" IsChecked="{Binding Settings.PeerDiscovery.PexEnabled}" Margin="0,4"/>
+                            <CheckBox Content="Enable local peer discovery (LSD)" IsChecked="{Binding Settings.PeerDiscovery.LsdEnabled}" Margin="0,4"/>
+                            <TextBlock Text="DHT, LSD and router port mapping are disabled while VPN binding, SOCKS5 or a nonempty IP blocklist is active. Use trackers and your provider's forwarded port." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Queue and global speed limits">
+                        <StackPanel>
+                            <CheckBox Content="Manage the active torrent queue" IsChecked="{Binding Settings.TorrentQueueing.Enabled}"/>
+                            <TextBlock Text="Queue limits are enforced independently of library size. 0 means no ordinary active torrents in that class. Force-start bypasses queue limits, not VPN or disk guards." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8"/>
+                            <TextBlock Text="Maximum active downloads"/><TextBox Text="{Binding Settings.TorrentQueueing.MaxActiveDownloads, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Maximum active seeds"/><TextBox Text="{Binding Settings.TorrentQueueing.MaxActiveSeeds, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Maximum active total"/><TextBox Text="{Binding Settings.TorrentQueueing.MaxActiveTotal, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Global download limit (KiB/s, 0 = unlimited)"/><TextBox Text="{Binding Settings.GlobalDownloadKBps, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Global upload limit (KiB/s, 0 = unlimited)"/><TextBox Text="{Binding Settings.GlobalUploadKBps, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Scheduled limits override these during a matching window. Outside that window, these global limits apply." Style="{StaticResource SecondaryText}" TextWrapping="Wrap"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -98,8 +140,8 @@
                                      Text="{Binding Settings.WebUIUsername, UpdateSourceTrigger=PropertyChanged}"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="2" Text="Password" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
-                            <TextBox Grid.Row="3" Grid.Column="2"
-                                     Text="{Binding Settings.WebUIPassword, UpdateSourceTrigger=PropertyChanged}"/>
+                            <PasswordBox Grid.Row="3" Grid.Column="2"
+                                         h:PasswordBinding.Password="{Binding Settings.WebUIPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>
                     </GroupBox>
 
@@ -166,7 +208,7 @@
                     <!-- ── VPN Protection ──────────────────────── -->
                     <GroupBox Header="VPN Protection">
                         <StackPanel>
-                            <CheckBox Content="Enable VPN monitoring"
+                            <CheckBox Content="Enforce VPN-only torrent traffic"
                                       IsChecked="{Binding Settings.VpnEnabled}"
                                       Margin="0,0,0,12"/>
 
@@ -183,10 +225,7 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <CheckBox Grid.Row="0" Grid.Column="0" Content="Kill switch"
-                                          IsChecked="{Binding Settings.VpnKillSwitch}"/>
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="Bind to VPN interface"
-                                          IsChecked="{Binding Settings.VpnBindInterface}"/>
+                                <TextBlock Grid.Row="0" Grid.ColumnSpan="3" Text="Always fail-closed when enabled: torrent peers, trackers, webseeds and DNS use the selected IPv4 adapter. LAN WebUI/API traffic stays separate. Also enable your VPN provider's kill switch as defense in depth." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Interface Prefix" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
                                 <TextBox Grid.Row="3" Grid.Column="0"
@@ -196,6 +235,30 @@
                                 <TextBox Grid.Row="3" Grid.Column="2"
                                          Text="{Binding Settings.VpnMonitorIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
+                            <TextBlock Text="VPN adapter (choose your actual tunnel, not the Ethernet/Wi-Fi adapter)" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
+                            <ComboBox ItemsSource="{Binding NetworkAdapters}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Settings.VpnInterfaceId, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Content="Refresh adapters" Command="{Binding RefreshNetworkAdaptersCommand}" HorizontalAlignment="Left" Margin="0,8"/>
+                            <TextBlock Text="{Binding TorrentNetworkStatusText}" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}" Margin="0,8"/>
+                            <TextBlock Text="VPN/proxy/blocklist changes stop torrent networking until you quit and reopen the app. A missing adapter never falls back to another. VPN DNS must support TCP port 53; no system-DNS fallback is used." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Torrent encryption, proxy and IP filtering">
+                        <StackPanel>
+                            <TextBlock Text="Peer encryption policy (not a replacement for a VPN)" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
+                            <ComboBox SelectedValuePath="Content" SelectedValue="{Binding Settings.TorrentNetwork.Encryption}" Width="160" HorizontalAlignment="Left">
+                                <ComboBoxItem Content="Prefer"/><ComboBoxItem Content="Require"/><ComboBoxItem Content="Disable"/>
+                            </ComboBox>
+                            <CheckBox Content="Route all outgoing torrent TCP connections through SOCKS5" IsChecked="{Binding Settings.TorrentNetwork.ProxyEnabled}" Margin="0,16,0,8"/>
+                            <TextBlock Text="SOCKS5 server IPv4 address" Style="{StaticResource SecondaryText}"/><TextBox Text="{Binding Settings.TorrentNetwork.ProxyHost, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8"/>
+                            <TextBlock Text="SOCKS5 port" Style="{StaticResource SecondaryText}"/><TextBox Text="{Binding Settings.TorrentNetwork.ProxyPort, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                            <TextBlock Text="Username (blank for no authentication)" Style="{StaticResource SecondaryText}"/><TextBox Text="{Binding Settings.TorrentNetwork.ProxyUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8"/>
+                            <TextBlock Text="Password (DPAPI-encrypted at rest, no permission prompts)" Style="{StaticResource SecondaryText}"/><PasswordBox h:PasswordBinding.Password="{Binding Settings.TorrentNetwork.ProxyPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8"/>
+                            <TextBlock Text="Hostname resolution is remote. Incoming peers and UDP trackers are disabled; failures never connect directly. With an IP blocklist, hostname tracker/webseed destinations are rejected because their remote addresses cannot be verified. SOCKS5 authentication is not encrypted on the wire: use VPN binding with untrusted networks." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Text="IP blocklist file (blank disables filtering)" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
+                            <TextBox Text="{Binding Settings.TorrentNetwork.BlocklistPath, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Content="Choose blocklist..." Command="{Binding BrowseTorrentBlocklistCommand}" HorizontalAlignment="Left" Margin="0,8"/>
+                            <TextBlock Text="Local text file: one IPv4/IPv6 address or CIDR per line, # comments, up to 100000 entries / 5 MiB. Restart after editing the file. This filters torrent peers, tracker and webseed destinations, not LAN API clients." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
                         </StackPanel>
                     </GroupBox>
 

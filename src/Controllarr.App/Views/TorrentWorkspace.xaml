@@ -1,0 +1,135 @@
+<UserControl x:Class="Controllarr.App.Views.TorrentWorkspace"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Controllarr.App.ViewModels"
+             AllowDrop="True" Drop="OnDrop" PreviewDragOver="OnDragOver">
+    <Grid DataContext="{Binding Desktop}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="160"/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="230" MinHeight="80"/>
+        </Grid.RowDefinitions>
+        <Border Background="{StaticResource SurfaceBrush}" Padding="20,16" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="260"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding ScopeTitle}" FontSize="24" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding SelectionSummary}" Style="{StaticResource SecondaryText}" Margin="0,6,0,0"/>
+                </StackPanel>
+                <TextBox x:Name="SearchBox" Grid.Column="1" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Search torrents" ToolTip="Search name, category or hash (Ctrl+F)" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Column="2" ItemsSource="{Binding StatusFilters}" SelectedItem="{Binding StatusFilter}"
+                          AutomationProperties.Name="Torrent status filter" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+        <DataGrid x:Name="TorrentGrid" Grid.Row="1" ItemsSource="{Binding RowsView}"
+                  SelectionMode="Extended" SelectionUnit="FullRow" IsSynchronizedWithCurrentItem="False" SelectionChanged="OnSelectionChanged"
+                  PreviewKeyDown="OnGridKeyDown" PreviewMouseRightButtonDown="OnRightClick"
+                  EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                  ScrollViewer.CanContentScroll="True" VirtualizingPanel.ScrollUnit="Pixel"
+                  RowHeight="34" BorderThickness="0" FrozenColumnCount="1">
+            <DataGrid.ContextMenu>
+                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                    <MenuItem Header="Resume selected" Command="{Binding ResumeSelectedCommand}"/>
+                    <MenuItem Header="Pause selected" Command="{Binding PauseSelectedCommand}"/>
+                    <MenuItem Header="Reannounce to trackers" Command="{Binding ReannounceSelectedCommand}"/>
+                    <MenuItem Header="Verify downloaded files..." Command="{Binding RecheckSelectedCommand}"/>
+                    <MenuItem Header="Force start" Command="{Binding ForceStartSelectedCommand}"/>
+                    <MenuItem Header="Return to managed queue" Command="{Binding ClearForceStartCommand}"/>
+                    <MenuItem Header="Queue position">
+                        <MenuItem Header="Move to top" Command="{Binding MoveQueueCommand}" CommandParameter="top"/>
+                        <MenuItem Header="Move up" Command="{Binding MoveQueueCommand}" CommandParameter="up"/>
+                        <MenuItem Header="Move down" Command="{Binding MoveQueueCommand}" CommandParameter="down"/>
+                        <MenuItem Header="Move to bottom" Command="{Binding MoveQueueCommand}" CommandParameter="bottom"/>
+                    </MenuItem>
+                    <MenuItem Header="Speed limits..." Command="{Binding SetSpeedLimitsCommand}"/>
+                    <MenuItem Header="Advanced controls..." Command="{Binding SetAdvancedControlsCommand}"/>
+                    <MenuItem Header="Preview / stream file..." Command="{Binding PreviewFileCommand}"/>
+                    <MenuItem Header="Edit trackers..." Command="{Binding EditTrackersCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="Assign category..." Command="{Binding AssignCategoryCommand}"/>
+                    <MenuItem Header="Move storage..." Command="{Binding MoveSelectedCommand}"/>
+                    <MenuItem Header="Open download folder" Command="{Binding OpenFolderCommand}"/>
+                    <MenuItem Header="Copy magnet links" Command="{Binding CopyMagnetsCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="Remove selected..." InputGestureText="Delete" Command="{Binding RemoveSelectedCommand}"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="230"/>
+                <DataGridTextColumn Header="Size" Binding="{Binding TotalWanted, Converter={StaticResource SizeConverter}}" Width="95" SortMemberPath="TotalWanted"/>
+                <DataGridTemplateColumn Header="Progress" Width="120" SortMemberPath="Progress">
+                    <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                        <Grid Margin="0,9">
+                            <ProgressBar Value="{Binding Progress, Mode=OneWay}" Maximum="1" Height="5" Background="{StaticResource BorderBrush}" Foreground="{StaticResource AccentBrush}"/>
+                            <TextBlock Text="{Binding Progress, StringFormat={}{0:P1}}" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Right" Background="{StaticResource SurfaceBrush}" Padding="4,0"/>
+                        </Grid>
+                    </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="130"/>
+                <DataGridTextColumn Header="Download" Binding="{Binding DownloadRate, Converter={StaticResource SpeedConverter}}" SortMemberPath="DownloadRate" Width="100"/>
+                <DataGridTextColumn Header="Upload" Binding="{Binding UploadRate, Converter={StaticResource SpeedConverter}}" SortMemberPath="UploadRate" Width="100"/>
+                <DataGridTextColumn Header="Peers" Binding="{Binding NumPeers}" Width="65"/>
+                <DataGridTextColumn Header="Seeds" Binding="{Binding NumSeeds}" Width="65"/>
+                <DataGridTextColumn Header="Ratio" Binding="{Binding Ratio, StringFormat={}{0:F2}}" Width="70"/>
+                <DataGridTextColumn Header="ETA" Binding="{Binding EtaSeconds, Converter={StaticResource EtaConverter}}" SortMemberPath="EtaSeconds" Width="90"/>
+                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120"/>
+                <DataGridTextColumn Header="Added" Binding="{Binding AddedDate, StringFormat={}{0:g}}" Width="150"/>
+                <DataGridTextColumn Header="Queue #" Binding="{Binding QueuePosition}" SortMemberPath="QueuePosition" Width="75"/>
+                <DataGridCheckBoxColumn Header="Forced" Binding="{Binding ForceStart, Mode=OneWay}" Width="65" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderBrush}"/>
+        <DockPanel Grid.Row="3" Background="{StaticResource SurfaceBrush}">
+            <Grid DockPanel.Dock="Top" Margin="12,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding DetailStatus}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding DetailStatus}"/>
+                <Button Grid.Column="1" Content="Refresh details" Command="{Binding RefreshDetailsCommand}" Style="{StaticResource SubtleButton}"/>
+            </Grid>
+            <TabControl>
+                <TabItem Header="Files">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="12,4">
+                            <Button Content="Apply file priorities" Command="{Binding SaveFilePrioritiesCommand}"/>
+                            <TextBlock Text="0 = skip, 1 = low, 2-3 = normal, 5-7 = high" Margin="12,0" VerticalAlignment="Center" Style="{StaticResource SecondaryText}"/>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding Files}" IsReadOnly="False" EnableRowVirtualization="True" EnableColumnVirtualization="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="File" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource SizeConverter}}" Width="110" IsReadOnly="True"/>
+                                <DataGridTemplateColumn Header="Priority" Width="110">
+                                    <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                        <ComboBox ItemsSource="{x:Static vm:FileChoice.Priorities}" SelectedItem="{Binding Priority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+                <TabItem Header="Trackers">
+                    <DockPanel>
+                    <Button DockPanel.Dock="Bottom" Content="Edit trackers..." Command="{Binding EditTrackersCommand}" HorizontalAlignment="Left" Margin="12,4"/>
+                    <DataGrid ItemsSource="{Binding Trackers}"><DataGrid.Columns>
+                        <DataGridTextColumn Header="Tracker URL" Binding="{Binding Url}" Width="*"/>
+                        <DataGridTextColumn Header="Tier" Binding="{Binding Tier}" Width="60"/>
+                        <DataGridTextColumn Header="Seeds" Binding="{Binding NumSeeds}" Width="80"/>
+                        <DataGridTextColumn Header="Peers" Binding="{Binding NumPeers}" Width="80"/>
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="220"/>
+                    </DataGrid.Columns></DataGrid>
+                    </DockPanel>
+                </TabItem>
+                <TabItem Header="Peers">
+                    <DataGrid ItemsSource="{Binding Peers}"><DataGrid.Columns>
+                        <DataGridTextColumn Header="IP address" Binding="{Binding Ip}" Width="160"/>
+                        <DataGridTextColumn Header="Client" Binding="{Binding Client}" Width="*"/>
+                        <DataGridTextColumn Header="Progress" Binding="{Binding Progress, StringFormat={}{0:P1}}" Width="90"/>
+                        <DataGridTextColumn Header="Download" Binding="{Binding DownloadRate, Converter={StaticResource SpeedConverter}}" Width="110"/>
+                        <DataGridTextColumn Header="Upload" Binding="{Binding UploadRate, Converter={StaticResource SpeedConverter}}" Width="110"/>
+                    </DataGrid.Columns></DataGrid>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+    </Grid>
+</UserControl>

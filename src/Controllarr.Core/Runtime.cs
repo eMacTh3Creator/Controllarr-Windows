@@ -108,7 +108,10 @@ namespace Controllarr.Core
                 $"Initializing: port={listenPort}, savePath={savePath}, storeDir={storeDir}");
 
             // ── 4. Torrent engine ──────────────────────────────────
-            Engine = new TorrentEngine(savePath, resumeDir, listenPort);
+            Engine = new TorrentEngine(savePath, resumeDir, listenPort, settings);
+            Engine.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
+            Engine.ConfigureQueue(settings.TorrentQueueing);
+            Engine.SetRateLimits(settings.GlobalDownloadKBps, settings.GlobalUploadKBps);
 
             // Apply connection-limit / peer-discovery tuning from settings.
             Engine.ApplyTuning(
@@ -258,6 +261,10 @@ namespace Controllarr.Core
 
                     // Snapshot settings and categories for fan-out
                     var settings = Store.GetSettings();
+                    await Engine.ApplyAdvancedSettingsAsync(settings);
+                    Engine.ConfigureQueue(settings.TorrentQueueing);
+                    await Engine.TickQueueAsync(!DiskSpaceMonitor.Snapshot().IsPaused && Engine.NetworkPolicy.Allowed);
+                    await Engine.CheckpointIfDueAsync();
                     var categories = (IReadOnlyList<Category>)Store.GetCategories();
 
                     // Build an engine adapter for services that need ITorrentEngine
@@ -530,12 +537,13 @@ namespace Controllarr.Core
 
             public void BindToAddress(string? ipAddress)
             {
-                // MonoTorrent's EngineSettings doesn't expose a direct bind-to-address
-                // API beyond ListenEndPoints. This is handled via SetListenPort with
-                // a specific endpoint. For now, this is a no-op placeholder that
-                // the VPNMonitor calls -- the actual bind logic is in VPNMonitor
-                // which calls engine.SetListenPort with the VPN interface.
+                throw new NotSupportedException("Use the selected-adapter socket policy, not a listen-only address override.");
             }
+            public bool SupportsInterfaceBinding => true;
+            public bool TorrentNetworkAllowed => _inner.NetworkPolicy.Allowed;
+            public bool NetworkRestartRequired => _inner.NetworkPolicy.RestartRequired;
+            public string? BoundVpnAddress => _inner.NetworkPolicy.RequiresVpn ? _inner.NetworkPolicy.Adapter?.Address.ToString() : null;
+            public void RefreshNetworkPolicy(Settings settings) => _inner.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
             public void Reannounce(string infoHash) =>
                 _inner.Reannounce(infoHash).GetAwaiter().GetResult();

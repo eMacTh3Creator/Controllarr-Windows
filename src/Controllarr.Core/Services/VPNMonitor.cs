@@ -24,6 +24,7 @@ namespace Controllarr.Core.Services
         public bool KillSwitchEngaged { get; set; }
         public HashSet<string> PausedHashes { get; set; } = new();
         public bool BoundToVPN { get; set; }
+        public bool RestartRequired { get; set; }
 
         public VpnStatus() { }
     }
@@ -58,6 +59,10 @@ namespace Controllarr.Core.Services
         private string _interfaceIP = string.Empty;
         private bool _killSwitchEngaged;
         private bool _boundToVPN;
+        private bool _bindingWarningReported;
+        private int _polling;
+        private bool _restartRequired;
+        private bool _stopping;
         private readonly HashSet<string> _pausedHashes = new();
 
         public VPNMonitor(ITorrentEngine engine,
@@ -78,6 +83,7 @@ namespace Controllarr.Core.Services
             {
                 if (_timer != null)
                     return;
+                _stopping = false;
 
                 var settings = _settingsProvider();
                 int intervalMs = Math.Max(1000, settings.VpnMonitorIntervalSeconds * 1000);
@@ -90,12 +96,15 @@ namespace Controllarr.Core.Services
         /// <summary>Stop polling.</summary>
         public void Stop()
         {
+            Timer? timer;
             lock (_lock)
             {
-                _timer?.Dispose();
+                _stopping = true;
+                timer = _timer;
                 _timer = null;
                 _logger.Info("VPNMonitor", "Stopped");
             }
+            timer?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         /// <summary>Returns a snapshot of the current VPN status.</summary>
@@ -112,7 +121,8 @@ namespace Controllarr.Core.Services
                     InterfaceIP = _interfaceIP,
                     KillSwitchEngaged = _killSwitchEngaged,
                     PausedHashes = new HashSet<string>(_pausedHashes),
-                    BoundToVPN = _boundToVPN
+                    BoundToVPN = _boundToVPN,
+                    RestartRequired = _restartRequired
                 };
             }
         }
@@ -126,9 +136,31 @@ namespace Controllarr.Core.Services
 
         private void OnTick(object? state)
         {
+            if (Interlocked.Exchange(ref _polling, 1) != 0) return;
             try
             {
+                lock (_lock) if (_stopping) return;
                 var settings = _settingsProvider();
+                if (_engine.SupportsInterfaceBinding)
+                {
+                    // Policy refresh runs outside the snapshot lock: engine queue work must not
+                    // deadlock a UI/API status read. Socket enforcement precedes every resume.
+                    _engine.RefreshNetworkPolicy(settings);
+                    var adapter = settings.VpnEnabled ? Networking.TorrentNetworkPolicy.DetectAdapter(settings) : null;
+                    lock (_lock)
+                    {
+                        bool blocked = !_engine.TorrentNetworkAllowed;
+                        if (blocked != _killSwitchEngaged || (adapter != null) != _isConnected)
+                            _logger.Info("VPNMonitor", _engine.NetworkRestartRequired ? "Torrent networking blocked until app restart" : blocked ? "VPN unavailable: torrent sockets blocked" : "Torrent network available");
+                        _isConnected = adapter != null;
+                        _interfaceName = adapter?.Name ?? "";
+                        _interfaceIP = adapter?.Address.ToString() ?? "";
+                        _killSwitchEngaged = blocked;
+                        _boundToVPN = _engine.BoundVpnAddress != null && !blocked;
+                        _restartRequired = _engine.NetworkRestartRequired;
+                    }
+                    return;
+                }
 
                 if (!settings.VpnEnabled)
                 {
@@ -170,6 +202,7 @@ namespace Controllarr.Core.Services
             {
                 _logger.Error("VPNMonitor", $"Tick error: {ex.Message}");
             }
+            finally { Volatile.Write(ref _polling, 0); }
         }
 
         // ── VPN state transitions ───────────────────────────────────
@@ -192,6 +225,16 @@ namespace Controllarr.Core.Services
             // Bind engine to VPN adapter IP
             if (settings.VpnBindInterface && !string.IsNullOrEmpty(_interfaceIP))
             {
+                if (!_engine.SupportsInterfaceBinding)
+                {
+                    _boundToVPN = false;
+                    if (!_bindingWarningReported)
+                    {
+                        _logger.Warn("VPNMonitor", "This engine backend does not enforce VPN interface binding. Use the VPN provider's kill switch/firewall; adapter detection and auto-pause are not traffic isolation.");
+                        _bindingWarningReported = true;
+                    }
+                    return;
+                }
                 if (!_boundToVPN)
                 {
                     _engine.BindToAddress(_interfaceIP);

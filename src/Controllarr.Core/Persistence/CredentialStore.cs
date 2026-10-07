@@ -22,12 +22,11 @@ namespace Controllarr.Core.Persistence
         // ── Well-known keys ────────────────────────────────────────
 
         public const string WebUIPasswordKey = "webui_password";
+        public const string TorrentProxyPasswordKey = "torrent_proxy_password";
 
         // ── Paths ──────────────────────────────────────────────────
 
-        private static readonly string StoreDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Controllarr");
+        private static readonly string StoreDirectory = ProfilePaths.CurrentDirectory;
 
         private static readonly string StoreFilePath = Path.Combine(StoreDirectory, "credentials.dat");
 

@@ -1,7 +1,12 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Text.Json;
 using MonoTorrent;
+using MonoTorrent.BEncoding;
 using MonoTorrent.Client;
 using MonoTorrent.Trackers;
+using Controllarr.Core.Networking;
+using Controllarr.Core.Persistence;
 
 namespace Controllarr.Core.Engine;
 
@@ -21,7 +26,9 @@ public enum TorrentState
     Finished = 4,
     Seeding = 5,
     CheckingResume = 6,
-    Paused = 7
+    Paused = 7,
+    Error = 8,
+    Queued = 9
 }
 
 /// <summary>
@@ -47,6 +54,8 @@ public sealed class TorrentStats
     public int EtaSeconds { get; init; } = -1;
     public DateTime AddedDate { get; init; }
     public string? Category { get; init; }
+    public long QueuePosition { get; init; }
+    public bool ForceStart { get; init; }
 }
 
 /// <summary>
@@ -117,16 +126,23 @@ public sealed class FileInfo
 /// Thread-safe wrapper around MonoTorrent's <see cref="ClientEngine"/> that exposes
 /// a clean, high-level API for the Controllarr application layer.
 /// </summary>
-public sealed class TorrentEngine : IDisposable
+public sealed partial class TorrentEngine : IDisposable
 {
     // ── Core engine ────────────────────────────────────────────
     private readonly ClientEngine _engine;
     private readonly object _engineLock = new();
+    private readonly SemaphoreSlim _stateSaveGate = new(1, 1);
+    private readonly SemaphoreSlim _settingsGate = new(1, 1);
+    private readonly object _snapshotLock = new();
+    private TorrentStats[]? _cachedStats;
+    private long _cachedStatsAt;
+    private readonly ConcurrentDictionary<string, TorrentManager> _managersByHash = new(StringComparer.OrdinalIgnoreCase);
 
     // ── Configuration ──────────────────────────────────────────
     private string _defaultSavePath;
     private readonly string _resumeDataDirectory;
     private readonly string _stateFilePath;
+    private readonly ConcurrentDictionary<string, byte> _pausedHashes = new(StringComparer.OrdinalIgnoreCase);
     private ushort _listenPort;
 
     // ── Per-torrent metadata ───────────────────────────────────
@@ -138,16 +154,19 @@ public sealed class TorrentEngine : IDisposable
 
     // ── Lifetime ───────────────────────────────────────────────
     private bool _disposed;
+    private volatile bool _shuttingDown;
 
     // ───────────────────────────────────────────────────────────
     // Constructor
     // ───────────────────────────────────────────────────────────
 
-    public TorrentEngine(string defaultSavePath, string resumeDataDirectory, ushort listenPort)
+    public TorrentEngine(string defaultSavePath, string resumeDataDirectory, ushort listenPort, Settings? initialSettings = null)
     {
         _defaultSavePath = defaultSavePath ?? throw new ArgumentNullException(nameof(defaultSavePath));
         _resumeDataDirectory = resumeDataDirectory ?? throw new ArgumentNullException(nameof(resumeDataDirectory));
         _listenPort = listenPort;
+        NetworkPolicy = new TorrentNetworkPolicy(initialSettings ?? new Settings());
+        var factories = TorrentNetworkFactories.Create(NetworkPolicy);
 
         Directory.CreateDirectory(_defaultSavePath);
         Directory.CreateDirectory(_resumeDataDirectory);
@@ -155,6 +174,14 @@ public sealed class TorrentEngine : IDisposable
         // The engine state file holds the full torrent LIST (so torrents
         // survive restarts and updates). Fast-resume restores their progress.
         _stateFilePath = Path.Combine(_resumeDataDirectory, "engine.state");
+        try
+        {
+            string path = _stateFilePath + ".paused.json";
+            if (File.Exists(path))
+                foreach (var hash in JsonSerializer.Deserialize<string[]>(File.ReadAllText(path)) ?? Array.Empty<string>())
+                    _pausedHashes.TryAdd(hash, 0);
+        }
+        catch (Exception ex) { Services.Logger.Instance.Warn("Engine", $"Could not load paused torrents: {ex.Message}"); }
 
         var settings = new EngineSettingsBuilder
         {
@@ -163,8 +190,10 @@ public sealed class TorrentEngine : IDisposable
             {
                 ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, _listenPort)
             },
-            AllowPortForwarding = true,
-            AutoSaveLoadFastResume = true,
+            AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery,
+            AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery,
+            DhtEndPoint = NetworkPolicy.RestrictedDiscovery ? null : new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0),
+            AutoSaveLoadFastResume = false,
         }.ToSettings();
 
         // Restore previously-added torrents if we have saved engine state.
@@ -173,7 +202,11 @@ public sealed class TorrentEngine : IDisposable
         {
             try
             {
-                restored = ClientEngine.RestoreStateAsync(_stateFilePath).GetAwaiter().GetResult();
+                // Older profiles used library-owned writes, which can overlap
+                // startup and SaveState. Disable them before restoring managers.
+                var saved = BEncodedValue.Decode<BEncodedDictionary>(File.ReadAllBytes(_stateFilePath));
+                ((BEncodedDictionary)saved["Settings"])["AutoSaveLoadFastResume"] = new BEncodedString("False");
+                restored = ClientEngine.RestoreStateAsync(saved.Encode(), factories).GetAwaiter().GetResult();
             }
             catch
             {
@@ -196,8 +229,10 @@ public sealed class TorrentEngine : IDisposable
                     {
                         ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, _listenPort)
                     },
-                    AllowPortForwarding = true,
-                    AutoSaveLoadFastResume = true,
+                    AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery,
+                    AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery,
+                    DhtEndPoint = NetworkPolicy.RestrictedDiscovery ? null : _engine.Settings.DhtEndPoint,
+                    AutoSaveLoadFastResume = false,
                 }.ToSettings();
                 _engine.UpdateSettingsAsync(rebuilt).GetAwaiter().GetResult();
             }
@@ -207,13 +242,16 @@ public sealed class TorrentEngine : IDisposable
             foreach (var mgr in _engine.Torrents)
             {
                 var hash = mgr.InfoHashes.V1OrV2.ToHex();
+                _managersByHash[hash] = mgr;
                 _addedDates.TryAdd(hash, DateTime.UtcNow);
             }
         }
         else
         {
-            _engine = new ClientEngine(settings);
+            _engine = new ClientEngine(settings, factories);
         }
+        RestoreResumeCheckpoints();
+        RestoreDesktopOptions();
     }
 
     // ───────────────────────────────────────────────────────────
@@ -241,11 +279,12 @@ public sealed class TorrentEngine : IDisposable
     /// Adds a torrent via its magnet URI and starts downloading.
     /// </summary>
     /// <returns>The hex info-hash of the added torrent.</returns>
-    public async Task<string> AddMagnet(string uri, string? category = null, string? savePath = null)
+    public async Task<string> AddMagnet(string uri, string? category = null, string? savePath = null, bool persist = true)
     {
         ThrowIfDisposed();
 
         var magnet = MagnetLink.Parse(uri);
+        if (FindManager(magnet.InfoHashes.V1OrV2.ToHex()) is { } duplicate) return duplicate.InfoHashes.V1OrV2.ToHex();
         var save = ResolveSavePath(savePath);
 
         TorrentManager manager;
@@ -255,14 +294,16 @@ public sealed class TorrentEngine : IDisposable
         }
 
         var hash = manager.InfoHashes.V1OrV2.ToHex();
+        _managersByHash[hash] = manager;
+        InvalidateStats();
 
         if (!string.IsNullOrEmpty(category))
             _categories[hash] = category;
 
         _addedDates[hash] = DateTime.UtcNow;
 
-        await manager.StartAsync();
-        await SaveEngineStateAsync();
+        await StartManagedAsync(manager);
+        if (persist) await SaveEngineStateAsync();
         return hash;
     }
 
@@ -270,7 +311,7 @@ public sealed class TorrentEngine : IDisposable
     /// Adds a torrent from a .torrent file on disk and starts downloading.
     /// </summary>
     /// <returns>The hex info-hash of the added torrent.</returns>
-    public async Task<string> AddTorrentFile(string filePath, string? category = null, string? savePath = null)
+    public async Task<string> AddTorrentFile(string filePath, string? category = null, string? savePath = null, bool persist = true)
     {
         ThrowIfDisposed();
 
@@ -278,6 +319,7 @@ public sealed class TorrentEngine : IDisposable
             throw new System.IO.FileNotFoundException("Torrent file not found.", filePath);
 
         var torrent = await Torrent.LoadAsync(filePath);
+        if (FindManager(torrent.InfoHashes.V1OrV2.ToHex()) is { } duplicate) return duplicate.InfoHashes.V1OrV2.ToHex();
         var save = ResolveSavePath(savePath);
 
         TorrentManager manager;
@@ -287,14 +329,16 @@ public sealed class TorrentEngine : IDisposable
         }
 
         var hash = manager.InfoHashes.V1OrV2.ToHex();
+        _managersByHash[hash] = manager;
+        InvalidateStats();
 
         if (!string.IsNullOrEmpty(category))
             _categories[hash] = category;
 
         _addedDates[hash] = DateTime.UtcNow;
 
-        await manager.StartAsync();
-        await SaveEngineStateAsync();
+        await StartManagedAsync(manager);
+        if (persist) await SaveEngineStateAsync();
         return hash;
     }
 
@@ -307,15 +351,23 @@ public sealed class TorrentEngine : IDisposable
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
 
+        await _queueGate.WaitAsync();
         try
         {
-            await mgr.PauseAsync();
+            if (mgr.State == MonoTorrent.Client.TorrentState.Starting) await StopManagerAsync(mgr);
+            else await mgr.PauseAsync();
+            _pausedHashes[infoHash] = 0;
+            _queuedHashes.TryRemove(infoHash, out _);
+            _options.AddOrUpdate(infoHash, OptionsFor(infoHash) with { ForceStart = false }, (_, previous) => previous with { ForceStart = false });
+            InvalidateStats();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Services.Logger.Instance.Warn("Engine", $"Pause {infoHash} failed in {mgr.State}: {ex}");
             return false;
         }
+        finally { _queueGate.Release(); }
     }
 
     public async Task<bool> Resume(string infoHash)
@@ -323,41 +375,55 @@ public sealed class TorrentEngine : IDisposable
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
 
+        await _queueGate.WaitAsync();
         try
         {
-            await mgr.StartAsync();
+            _pausedHashes.TryRemove(infoHash, out _);
+            await StartManagedAsync(mgr);
+            InvalidateStats();
             return true;
         }
         catch
         {
+            _pausedHashes[infoHash] = 0;
             return false;
         }
+        finally { _queueGate.Release(); }
     }
 
-    public async Task<bool> Remove(string infoHash, bool deleteFiles)
+    public async Task<bool> Remove(string infoHash, bool deleteFiles, bool persist = true)
     {
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
 
+        await _queueGate.WaitAsync();
         try
         {
-            await mgr.StopAsync();
+            await StopManagerAsync(mgr);
             await _engine.RemoveAsync(mgr,
                 deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
 
+            _managersByHash.TryRemove(infoHash, out _);
+            InvalidateStats();
+
             _categories.TryRemove(infoHash, out _);
             _addedDates.TryRemove(infoHash, out _);
+            _pausedHashes.TryRemove(infoHash, out _);
+            _queuedHashes.TryRemove(infoHash, out _);
+            _options.TryRemove(infoHash, out _);
 
             lock (_filteredLock)
                 _filteredHashes.Remove(infoHash);
 
-            await SaveEngineStateAsync();
+            if (persist) await SaveEngineStateAsync();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Services.Logger.Instance.Warn("Engine", $"Remove {infoHash} failed in {mgr.State}: {ex}");
             return false;
         }
+        finally { _queueGate.Release(); }
     }
 
     public async Task<bool> Move(string infoHash, string newPath)
@@ -365,16 +431,47 @@ public sealed class TorrentEngine : IDisposable
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
 
+        await _queueGate.WaitAsync();
         try
         {
             Directory.CreateDirectory(newPath);
+            bool resume = mgr.State is not MonoTorrent.Client.TorrentState.Paused and not MonoTorrent.Client.TorrentState.Stopped;
+            await StopManagerAsync(mgr);
             await mgr.MoveFilesAsync(newPath, true);
+            if (mgr.State == MonoTorrent.Client.TorrentState.Error) return false;
+            if (resume) await StartManagedAsync(mgr);
+            InvalidateStats();
             return true;
         }
         catch
         {
             return false;
         }
+        finally { _queueGate.Release(); }
+    }
+
+    public async Task<bool> Recheck(string infoHash)
+    {
+        var manager = FindManager(infoHash);
+        if (manager == null || !manager.HasMetadata) return false;
+        await _queueGate.WaitAsync();
+        try
+        {
+            await StopManagerAsync(manager);
+            _pausedHashes[infoHash] = 0;
+            _checkingHashes[infoHash] = 0;
+            await InvalidateResumeCheckpointAsync(manager);
+            await manager.HashCheckAsync(autoStart: false);
+            bool verified = manager.HashChecked && manager.State != MonoTorrent.Client.TorrentState.Error;
+            if (!verified) Services.Logger.Instance.Warn("Engine", $"Recheck {infoHash}: state={manager.State}, checked={manager.HashChecked}, error={manager.Error}");
+            return verified;
+        }
+        catch (Exception ex)
+        {
+            Services.Logger.Instance.Warn("Engine", $"Recheck {infoHash} failed in {manager.State}: {ex}");
+            return false;
+        }
+        finally { _checkingHashes.TryRemove(infoHash, out _); InvalidateStats(); _queueGate.Release(); }
     }
 
     // ───────────────────────────────────────────────────────────
@@ -387,6 +484,8 @@ public sealed class TorrentEngine : IDisposable
             _categories.TryRemove(infoHash, out _);
         else
             _categories[infoHash] = category;
+        lock (_filteredLock) _filteredHashes.Remove(infoHash);
+        InvalidateStats();
     }
 
     public Dictionary<string, string> SnapshotCategories()
@@ -413,19 +512,18 @@ public sealed class TorrentEngine : IDisposable
     /// </summary>
     public void RegisterBlockedExtensions(string[] extensions, string category)
     {
-        if (extensions is null || extensions.Length == 0) return;
+        if (extensions is null || extensions.Length == 0)
+        {
+            _blockedExtensions.TryRemove(category, out _);
+            return;
+        }
 
         var normalized = new HashSet<string>(
             extensions.Select(e => e.StartsWith('.') ? e : "." + e),
             StringComparer.OrdinalIgnoreCase);
 
-        _blockedExtensions.AddOrUpdate(category, normalized,
-            (_, existing) =>
-            {
-                foreach (var ext in normalized)
-                    existing.Add(ext);
-                return existing;
-            });
+        _blockedExtensions[category] = normalized;
+        lock (_filteredLock) _filteredHashes.Clear();
     }
 
     /// <summary>
@@ -435,7 +533,7 @@ public sealed class TorrentEngine : IDisposable
     /// </summary>
     public void ApplyPendingFileFilters()
     {
-        foreach (var mgr in _engine.Torrents)
+        foreach (var mgr in _managersByHash.Values)
         {
             var hash = mgr.InfoHashes.V1OrV2.ToHex();
 
@@ -517,7 +615,7 @@ public sealed class TorrentEngine : IDisposable
                 };
                 await mgr.SetFilePriorityAsync(mgr.Files[i], prio);
             }
-
+            _options.AddOrUpdate(infoHash, OptionsFor(infoHash) with { FilePriorities = priorities.ToArray() }, (_, previous) => previous with { FilePriorities = priorities.ToArray() });
             return true;
         }
         catch
@@ -655,7 +753,16 @@ public sealed class TorrentEngine : IDisposable
 
     public TorrentStats[] PollStats()
     {
-        return _engine.Torrents.Select(BuildStats).ToArray();
+        lock (_snapshotLock)
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (_cachedStats != null && Stopwatch.GetElapsedTime(_cachedStatsAt, now) < TimeSpan.FromMilliseconds(250))
+                return _cachedStats;
+            // Concurrent index avoids enumerating MonoTorrent's changing manager list from API threads.
+            _cachedStats = _managersByHash.Values.Select(BuildStats).ToArray();
+            _cachedStatsAt = now;
+            return _cachedStats;
+        }
     }
 
     public TorrentStats? GetStats(string infoHash)
@@ -669,11 +776,12 @@ public sealed class TorrentEngine : IDisposable
         long dlTotal = 0, ulTotal = 0;
         int peers = 0;
 
-        foreach (var mgr in _engine.Torrents)
+        var snapshots = PollStats();
+        foreach (var torrent in snapshots)
         {
-            dlTotal += mgr.Monitor.DataBytesDownloaded;
-            ulTotal += mgr.Monitor.DataBytesUploaded;
-            peers += mgr.OpenConnections;
+            dlTotal += torrent.TotalDownload;
+            ulTotal += torrent.TotalUpload;
+            peers += torrent.NumPeers;
         }
 
         return new SessionStats
@@ -682,7 +790,7 @@ public sealed class TorrentEngine : IDisposable
             UploadRate = _engine.TotalUploadRate,
             TotalDownloaded = dlTotal,
             TotalUploaded = ulTotal,
-            NumTorrents = _engine.Torrents.Count,
+            NumTorrents = snapshots.Length,
             NumPeersConnected = peers,
             HasIncomingConnections = _engine.ConnectionManager.OpenConnections > 0,
             ListenPort = _listenPort
@@ -697,32 +805,36 @@ public sealed class TorrentEngine : IDisposable
     {
         ThrowIfDisposed();
 
-        if (port == _listenPort) return;
-
-        _listenPort = port;
-
-        var newSettings = new EngineSettingsBuilder(_engine.Settings)
+        await _settingsGate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            ListenEndPoints = new Dictionary<string, System.Net.IPEndPoint>
+            if (port == _listenPort) return;
+            var newSettings = new EngineSettingsBuilder(_engine.Settings)
             {
-                ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, port)
-            }
-        }.ToSettings();
-
-        await _engine.UpdateSettingsAsync(newSettings);
+                ListenEndPoints = new Dictionary<string, System.Net.IPEndPoint>
+                {
+                    ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, port)
+                }
+            }.ToSettings();
+            await _engine.UpdateSettingsAsync(newSettings).ConfigureAwait(false);
+            _listenPort = port;
+        }
+        finally { _settingsGate.Release(); }
     }
 
     public void SetRateLimits(int? downloadKBps, int? uploadKBps)
     {
         ThrowIfDisposed();
 
-        var builder = new EngineSettingsBuilder(_engine.Settings);
-
-        // 0 means unlimited in MonoTorrent.
-        builder.MaximumDownloadRate = downloadKBps.HasValue ? downloadKBps.Value * 1024 : 0;
-        builder.MaximumUploadRate = uploadKBps.HasValue ? uploadKBps.Value * 1024 : 0;
-
-        _engine.UpdateSettingsAsync(builder.ToSettings()).GetAwaiter().GetResult();
+        _settingsGate.Wait();
+        try
+        {
+            var builder = new EngineSettingsBuilder(_engine.Settings);
+            builder.MaximumDownloadRate = downloadKBps.HasValue ? checked(downloadKBps.Value * 1024) : 0;
+            builder.MaximumUploadRate = uploadKBps.HasValue ? checked(uploadKBps.Value * 1024) : 0;
+            _engine.UpdateSettingsAsync(builder.ToSettings()).GetAwaiter().GetResult();
+        }
+        finally { _settingsGate.Release(); }
     }
 
     /// <summary>
@@ -738,13 +850,15 @@ public sealed class TorrentEngine : IDisposable
     {
         ThrowIfDisposed();
 
+        _settingsGate.Wait();
         try
         {
             var builder = new EngineSettingsBuilder(_engine.Settings)
             {
                 MaximumConnections = globalMaxConnections > 0 ? globalMaxConnections : 200,
-                AllowLocalPeerDiscovery = localPeerDiscoveryEnabled,
-                DhtEndPoint = dhtEnabled
+                AllowLocalPeerDiscovery = localPeerDiscoveryEnabled && !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired,
+                AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired,
+                DhtEndPoint = dhtEnabled && !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired
                     ? new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0)
                     : null,
             };
@@ -755,6 +869,7 @@ public sealed class TorrentEngine : IDisposable
         {
             // Tuning is best-effort; never let it take the engine down.
         }
+        finally { _settingsGate.Release(); }
     }
 
     public async Task ForceReannounceAll()
@@ -772,18 +887,6 @@ public sealed class TorrentEngine : IDisposable
 
     public async Task SaveResumeData()
     {
-        // MonoTorrent 3.x auto-saves fast-resume when AutoSaveLoadFastResume is true.
-        // We trigger an explicit save for robustness.
-        foreach (var mgr in _engine.Torrents)
-        {
-            try
-            {
-                await mgr.SaveFastResumeAsync();
-            }
-            catch { /* best effort */ }
-        }
-
-        // Persist the torrent list so it survives restarts/updates.
         await SaveEngineStateAsync();
     }
 
@@ -793,22 +896,33 @@ public sealed class TorrentEngine : IDisposable
     /// </summary>
     public async Task SaveEngineStateAsync()
     {
+        await _stateSaveGate.WaitAsync();
         try
         {
-            await _engine.SaveStateAsync(_stateFilePath);
+            await WriteResumeCheckpointsAsync();
+            string temporary = _stateFilePath + ".tmp";
+            await _engine.SaveStateAsync(temporary);
+            File.Move(temporary, _stateFilePath, overwrite: true);
+            string pausedPath = _stateFilePath + ".paused.json";
+            await File.WriteAllTextAsync(pausedPath + ".tmp", JsonSerializer.Serialize(_pausedHashes.Keys.ToArray()));
+            File.Move(pausedPath + ".tmp", pausedPath, overwrite: true);
+            string optionsPath = _stateFilePath + ".options.json";
+            await File.WriteAllTextAsync(optionsPath + ".tmp", JsonSerializer.Serialize(_options));
+            File.Move(optionsPath + ".tmp", optionsPath, overwrite: true);
         }
-        catch { /* best effort — never block on persistence */ }
+        catch (Exception ex) { Services.Logger.Instance.Error("Engine", $"Could not save torrent state: {ex.Message}"); }
+        finally { _stateSaveGate.Release(); }
     }
 
     /// <summary>
-    /// Starts every managed torrent. Used after restoring engine state so the
-    /// torrents carried over from the last session resume downloading/seeding.
+    /// Resumes restored torrents except those explicitly paused by the user or policy.
     /// </summary>
     public async Task ResumeAllAsync()
     {
         foreach (var mgr in _engine.Torrents)
         {
-            try { await mgr.StartAsync(); }
+            if (_pausedHashes.ContainsKey(mgr.InfoHashes.V1OrV2.ToHex())) continue;
+            try { await StartManagedAsync(mgr); }
             catch { /* already running / transient — ignore */ }
         }
     }
@@ -816,6 +930,8 @@ public sealed class TorrentEngine : IDisposable
     public async Task Shutdown()
     {
         if (_disposed) return;
+        _shuttingDown = true;
+        foreach (var preview in _previews.Values.ToArray()) await preview.DisposeAsync();
 
         // Save the torrent list first (while torrents are still present) so the
         // next launch restores them.
@@ -825,13 +941,16 @@ public sealed class TorrentEngine : IDisposable
         {
             try
             {
-                await mgr.StopAsync();
-                await mgr.SaveFastResumeAsync();
+                await StopManagerAsync(mgr);
             }
             catch { /* best effort */ }
         }
 
+        await SaveEngineStateAsync();
+
         _disposed = true;
+        NetworkPolicy.Dispose();
+        await Task.Run(() => _engine.Dispose());
     }
 
     // ───────────────────────────────────────────────────────────
@@ -855,6 +974,29 @@ public sealed class TorrentEngine : IDisposable
     // Private helpers
     // ───────────────────────────────────────────────────────────
 
+    private async Task StopManagerAsync(TorrentManager manager)
+    {
+        // StartingMode finishes asynchronously after StartAsync returns. Let its
+        // short resume-data initialization finish before a stop/move/remove.
+        var starting = Stopwatch.StartNew();
+        while (manager.State == MonoTorrent.Client.TorrentState.Starting)
+        {
+            if (starting.Elapsed > TimeSpan.FromSeconds(10)) throw new TimeoutException("Torrent is still starting; retry once initialization finishes.");
+            await Task.Delay(20);
+        }
+        // MonoTorrent 3.0.2 can finish startup during StopAsync and dispose its
+        // stopping token. Retry only that specific race, never ignore other failures.
+        for (int attempt = 0; ; attempt++)
+        {
+            try { await manager.StopAsync(); return; }
+            catch (ObjectDisposedException) when (!_disposed && attempt < 2)
+            {
+                if (manager.State == MonoTorrent.Client.TorrentState.Stopped) return;
+                await Task.Delay(25);
+            }
+        }
+    }
+
     private string ResolveSavePath(string? savePath)
     {
         var path = string.IsNullOrWhiteSpace(savePath) ? _defaultSavePath : savePath;
@@ -862,13 +1004,17 @@ public sealed class TorrentEngine : IDisposable
         return path;
     }
 
+    private void InvalidateStats()
+    {
+        lock (_snapshotLock) _cachedStats = null;
+    }
+
     private TorrentManager? FindManager(string infoHash)
     {
         if (string.IsNullOrEmpty(infoHash))
             return null;
 
-        return _engine.Torrents.FirstOrDefault(m =>
-            string.Equals(m.InfoHashes.V1OrV2.ToHex(), infoHash, StringComparison.OrdinalIgnoreCase));
+        return _managersByHash.TryGetValue(infoHash, out var manager) ? manager : null;
     }
 
     private TorrentStats BuildStats(TorrentManager mgr)
@@ -942,9 +1088,9 @@ public sealed class TorrentEngine : IDisposable
             InfoHash = hash,
             SavePath = mgr.SavePath,
             Progress = (float)(mgr.Progress / 100.0),
-            State = MapState(mgr.State),
-            Paused = mgr.State == MonoTorrent.Client.TorrentState.Paused
-                     || mgr.State == MonoTorrent.Client.TorrentState.Stopped,
+            State = _queuedHashes.ContainsKey(hash) ? TorrentState.Queued : MapState(mgr.State),
+            Paused = !_queuedHashes.ContainsKey(hash) && (mgr.State == MonoTorrent.Client.TorrentState.Paused
+                     || mgr.State == MonoTorrent.Client.TorrentState.Stopped),
             DownloadRate = mgr.Monitor.DownloadSpeed,
             UploadRate = mgr.Monitor.UploadSpeed,
             TotalWanted = totalWanted,
@@ -956,7 +1102,9 @@ public sealed class TorrentEngine : IDisposable
             NumSeeds = numSeeds,
             EtaSeconds = eta,
             AddedDate = added == default ? DateTime.UtcNow : added,
-            Category = cat
+            Category = cat,
+            QueuePosition = OptionsFor(hash).Position,
+            ForceStart = OptionsFor(hash).ForceStart
         };
     }
 
@@ -973,7 +1121,7 @@ public sealed class TorrentEngine : IDisposable
             MonoTorrent.Client.TorrentState.HashingPaused => TorrentState.CheckingFiles,
             MonoTorrent.Client.TorrentState.Metadata => TorrentState.DownloadingMetadata,
             MonoTorrent.Client.TorrentState.Stopping => TorrentState.Paused,
-            MonoTorrent.Client.TorrentState.Error => TorrentState.Unknown,
+            MonoTorrent.Client.TorrentState.Error => TorrentState.Error,
             MonoTorrent.Client.TorrentState.FetchingHashes => TorrentState.CheckingFiles,
             _ => TorrentState.Unknown
         };

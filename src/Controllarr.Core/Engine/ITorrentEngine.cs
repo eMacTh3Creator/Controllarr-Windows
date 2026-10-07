@@ -8,6 +8,12 @@ namespace Controllarr.Core.Engine
 
     public interface ITorrentEngine
     {
+        /// <summary>True only if this backend can enforce its advertised interface binding.</summary>
+        bool SupportsInterfaceBinding => false;
+        bool TorrentNetworkAllowed => true;
+        bool NetworkRestartRequired => false;
+        string? BoundVpnAddress => null;
+        void RefreshNetworkPolicy(Persistence.Settings settings) { }
         /// <summary>Returns a snapshot of all managed torrents.</summary>
         IReadOnlyList<TorrentView> GetTorrents();
 

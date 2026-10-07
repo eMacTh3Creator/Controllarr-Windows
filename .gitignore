@@ -5,6 +5,7 @@ publish/
 *.user
 *.suo
 *.cache
+*_wpftmp.csproj
 *.vs/
 
 ## IDE

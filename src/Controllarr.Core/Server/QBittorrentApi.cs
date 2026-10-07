@@ -481,6 +481,29 @@ namespace Controllarr.Core.Server
             });
 
             // ── Delete ─────────────────────────────────────────────
+            app.MapPost("/api/v2/torrents/setForceStart", async (HttpContext ctx) =>
+            {
+                var form = await FormParser.ParseForm(ctx.Request);
+                bool force = form.GetValueOrDefault("value", "false") is "true" or "1";
+                IEnumerable<string> hashes = form.GetValueOrDefault("hashes", "") == "all" ? engine.PollStats().Select(t => t.InfoHash).ToArray() : ParsePipeSeparatedHashes(form.GetValueOrDefault("hashes", ""));
+                foreach (string hash in hashes) await engine.SetForceStartAsync(hash, force, persist: false);
+                await engine.SaveEngineStateAsync();
+                return Results.Ok();
+            });
+            app.MapPost("/api/v2/torrents/toggleSequentialDownload", async (HttpContext ctx) =>
+            {
+                var form = await FormParser.ParseForm(ctx.Request);
+                IEnumerable<string> hashes = form.GetValueOrDefault("hashes", "") == "all" ? engine.PollStats().Select(t => t.InfoHash).ToArray() : ParsePipeSeparatedHashes(form.GetValueOrDefault("hashes", ""));
+                foreach (string hash in hashes)
+                {
+                    var options = engine.GetOptions(hash);
+                    await engine.SetAdvancedOptionsAsync(hash, options.MaximumConnections, options.UploadSlots, !options.Sequential, persist: false);
+                }
+                await engine.SaveEngineStateAsync();
+                return Results.Ok();
+            });
+            app.MapPost("/api/v2/torrents/setSuperSeeding", () => Results.Problem("Super-seeding is not supported by this engine.", statusCode: 501));
+
             app.MapPost("/api/v2/torrents/delete", async (HttpContext ctx) =>
             {
                 var form = await FormParser.ParseForm(ctx.Request);
@@ -780,8 +803,11 @@ namespace Controllarr.Core.Server
                 var incoming = JsonSerializer.Deserialize<Settings>(body, JsonOpts);
                 if (incoming == null)
                     return Results.BadRequest("Invalid settings JSON");
+                try { Networking.TorrentNetworkPolicy.Validate(incoming); }
+                catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
                 store.ReplaceSettings(incoming);
+                await engine.ApplyAdvancedSettingsAsync(incoming);
                 logger.Info("API", "Settings updated via API");
 
                 // Apply a newly-set preferred listen port to the live engine so
@@ -802,6 +828,24 @@ namespace Controllarr.Core.Server
                 }
 
                 return Results.Ok(incoming);
+            });
+
+            app.MapGet("/api/controllarr/network", () => Results.Json(new
+            {
+                allowed = engine.NetworkPolicy.Allowed, restart_required = engine.NetworkPolicy.RestartRequired,
+                vpn_required = engine.NetworkPolicy.RequiresVpn, proxy_enabled = engine.NetworkPolicy.UsesProxy,
+                bound_address = engine.NetworkPolicy.Adapter?.Address.ToString(),
+                interface_name = engine.NetworkPolicy.Adapter?.Name,
+                restricted_discovery = engine.NetworkPolicy.RestrictedDiscovery
+            }, JsonOpts));
+            app.MapGet("/api/controllarr/torrents/{hash}/options", (string hash) =>
+                engine.GetStats(hash) == null ? Results.NotFound() : Results.Json(engine.GetOptions(hash), JsonOpts));
+            app.MapPost("/api/controllarr/torrents/{hash}/options", async (string hash, HttpContext ctx) =>
+            {
+                var options = await JsonSerializer.DeserializeAsync<TorrentOptions>(ctx.Request.Body, JsonOpts);
+                if (options == null) return Results.BadRequest("Invalid options");
+                try { return await engine.SetAdvancedOptionsAsync(hash, options.MaximumConnections, options.UploadSlots, options.Sequential) ? Results.Ok() : Results.NotFound(); }
+                catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
             });
 
             // ── Backup ─────────────────────────────────────────────
@@ -1041,10 +1085,10 @@ namespace Controllarr.Core.Server
                     : -1,
                 ["downloaded"] = t.TotalDownload,
                 ["uploaded"] = t.TotalUpload,
-                ["priority"] = 0,
+                ["priority"] = t.QueuePosition,
                 ["seq_dl"] = false,
                 ["f_l_piece_prio"] = false,
-                ["force_start"] = false,
+                ["force_start"] = t.ForceStart,
                 ["super_seeding"] = false,
                 ["auto_tmm"] = true
             };
@@ -1055,6 +1099,8 @@ namespace Controllarr.Core.Server
         /// </summary>
         private static string MapState(TorrentStats t)
         {
+            if (t.State == TorrentState.Queued) return t.Progress >= 1 ? "queuedUP" : "queuedDL";
+            if (t.State == TorrentState.Error) return "error";
             if (t.Paused && t.Progress >= 1.0f)
                 return "pausedUP";
             if (t.Paused)
@@ -1215,8 +1261,13 @@ namespace Controllarr.Core.Server
 
             public void BindToAddress(string? ipAddress)
             {
-                // Placeholder – actual VPN bind is handled by VPNMonitor
+                throw new NotSupportedException("Use the selected-adapter socket policy, not a listen-only override.");
             }
+            public bool SupportsInterfaceBinding => true;
+            public bool TorrentNetworkAllowed => _inner.NetworkPolicy.Allowed;
+            public bool NetworkRestartRequired => _inner.NetworkPolicy.RestartRequired;
+            public string? BoundVpnAddress => _inner.NetworkPolicy.RequiresVpn ? _inner.NetworkPolicy.Adapter?.Address.ToString() : null;
+            public void RefreshNetworkPolicy(Settings settings) => _inner.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
             public void Reannounce(string infoHash) =>
                 _inner.Reannounce(infoHash).GetAwaiter().GetResult();

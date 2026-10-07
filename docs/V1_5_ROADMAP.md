@@ -1,6 +1,6 @@
 # Controllarr for Windows — Roadmap (Historical Product Direction)
 
-> **Status note.** This document is kept as historical / product-direction context. It was adapted from the macOS Controllarr v1.5 roadmap for the Windows port. The shipping Windows build is **v2.1.15**, which is aligned 1:1 with macOS Controllarr v2.1.15, so several of the foundations and epics described below have already landed. Treat the themes here as the direction that shaped the product, not as an outstanding commitment.
+> **Status note.** Historical product-direction context, not a numbered release commitment. Windows v2.2.0 ships the x64/ARM64 native desktop with bulk management, active queues, torrent creation/migration, RSS, enforced VPN socket binding, SOCKS5/encryption/IP filtering and sequential/streaming controls. ARM64 remains experimental. See [DESKTOP.md](DESKTOP.md) and [NETWORKING.md](NETWORKING.md) for capability and validation limits. Engine behavior is not assumed to match macOS.
 
 ## Vision
 
@@ -21,11 +21,11 @@ The next big jump is not just adding more toggles. It is adding systems that mak
 
 ## Foundations Already Started
 
-The first roadmap-oriented pieces are now in the shipping build on `main`:
+The roadmap foundations are now in the shipping build on `master`:
 
-- a self-contained, no-install `Controllarr.exe` (win-x64) suitable for headless / always-on deployments
+- self-contained x64 and experimental ARM64 app folders for tray-based / always-on deployments (not a Windows Service)
 - Web UI backup export and restore workflows
-- optional secret export for the Web UI password (DPAPI-backed) and saved *arr API keys (stored in the app-state file)
+- configuration export with decrypted WebUI/SOCKS5 passwords and saved *arr keys; current export buttons include secrets, so protect exported JSON
 - a first-pass health-based recovery engine with automatic/manual action logging
 - operator-facing post-processing retries and explicit disk-space rechecks in the Web UI
 - a persistent, crash-surviving on-disk log at `%AppData%\Controllarr\logs\controllarr.log` with fsync-on-warn/error and ~5MB rotation
@@ -45,7 +45,7 @@ Feature candidates:
 - Smart auto-tagging based on tracker, category, source app, or filename
 - Tracker policy groups with failover behavior
 - Automatic recheck / reannounce / pause / delete playbooks
-- Batch actions across filtered torrents
+- Batch actions across filtered torrents (implemented in the native desktop redesign)
 - Cross-seed and duplicate-content detection
 - Per-category or per-tracker queue budgets
 - Download windows and "quiet hours" beyond the existing bandwidth scheduler
@@ -127,7 +127,7 @@ Feature candidates:
 - Scoped API tokens for apps and automation
 - Full audit log of user and automation actions
 - Better session management with expiry, revocation, and device history (building on the 1h sliding-expiry session auth)
-- Secure secret storage for *arr keys, tracker credentials, and external integrations (only the Web UI / API password is DPAPI-backed today)
+- Secure secret storage for *arr keys, tracker credentials, and external integrations (WebUI/SOCKS5 passwords are DPAPI-backed today; *arr keys remain in state)
 - Network access controls and trusted-origin controls for the Web UI (building on the existing security headers, optional clickjacking protection, and CIDR IP allowlist)
 - Encrypted config export for backups
 
@@ -216,7 +216,7 @@ The macOS app uses Sparkle with a signed appcast for in-place updates. The Windo
 
 - a "Check for Updates" action in the native WPF app and a settings toggle to enable/disable the check
 - when a newer release is found, Controllarr opens the latest GitHub release page rather than downloading and installing silently
-- updating is a deliberate user action: download the new self-contained `Controllarr.exe`, unblock the mark-of-the-web (right-click → Properties → Unblock, or `Unblock-File` in PowerShell), and replace the old binary
+- updating is a deliberate user action: download the correct architecture ZIP, verify its checksum, stop Controllarr and extract the entire new application folder; retain the separate profile and a backup
 
 This keeps the unsigned-binary distribution model honest about what is happening and avoids shipping an auto-installer that would trip Windows SmartScreen in surprising ways. A future roadmap item could add an assisted download-and-swap helper while keeping the user in control of the actual replacement step.
 

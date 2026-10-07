@@ -39,7 +39,10 @@ namespace Controllarr.App
             base.OnStartup(e);
 
             // ── Single-instance check ──────────────────────────────
-            _singleInstanceMutex = new Mutex(true, MutexName, out bool createdNew);
+            string mutex = ProfilePaths.IsCustom
+                ? "Local\\Controllarr_" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(ProfilePaths.CurrentDirectory.ToUpperInvariant())))[..16]
+                : MutexName;
+            _singleInstanceMutex = new Mutex(true, mutex, out bool createdNew);
             if (!createdNew)
             {
                 MessageBox.Show(
@@ -58,7 +61,7 @@ namespace Controllarr.App
             ParseCommandLineArgs(e.Args);
 
             // ── Register as magnet: URI handler ────────────────────
-            RegisterMagnetProtocol();
+            if (!ProfilePaths.IsCustom) RegisterMagnetProtocol();
         }
 
         // ────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@
             <conv:SpeedConverter x:Key="SpeedConverter"/>
             <conv:EtaConverter x:Key="EtaConverter"/>
             <conv:ProgressPercentConverter x:Key="ProgressPercentConverter"/>
+            <conv:StringListConverter x:Key="StringListConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
