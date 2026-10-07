@@ -1,8 +1,8 @@
 # Operations Guide
 
 This doc covers the operator-focused foundations available in Controllarr for
-Windows. The current release is v2.2.0, including the native desktop redesign
-and enforced torrent adapter binding. The operator workflows below reflect
+Windows. The current release is v2.2.1, including installers, profile import,
+pause-first bulk removal and enforced adapter binding. The operator workflows below reflect
 the Windows engine, paths, and tooling.
 
 ## Performance and Scale
@@ -40,10 +40,26 @@ detail.
 
 ## Running Controllarr
 
-Releases before v2.2.0 used a single self-contained x64 EXE. v2.2.0
-provides separate self-contained x64 and ARM64 ZIP folders;
-extract all files and keep the DLLs alongside `Controllarr.exe`. No .NET install
-is required. ARM64 remains experimental; see [INSTALL.md](INSTALL.md).
+v2.2.1 provides per-user x64/ARM64 installers, preserving existing AppData
+settings by default, plus optional profile import with backup. Portable ZIPs
+remain available; extract the whole folder and keep its DLLs together. No .NET
+install is required. ARM64 remains experimental; see [INSTALL.md](INSTALL.md).
+
+### Bulk Removal
+
+After confirmation, the desktop snapshots the selection and pauses all selected
+transfers first. Up to 16 stop operations overlap with two-second final tracker
+announce waits. Disk flushes still finish before files can be deleted; this is
+not an unsafe forced timeout. Deletion remains serial to avoid saturating storage,
+with phased progress and lightweight state saves instead of rewriting the whole
+library's resume cache every 25 removals. API deletion uses the same batch engine,
+including `hashes=all`, and saves the category map once per batch.
+
+Cancel finishes in-flight work and prevents further deletions. Remaining selected
+torrents stay paused after restart; explicitly resume them or select them for a
+later removal batch. Failed items stay listed and are reported in Log. Deleted
+files cannot be rolled back. Slow disks, SMB, antivirus and pending disk flushes
+can still slow a batch.
 
 - Launch `Controllarr.exe` to start the WPF app, the embedded Kestrel HTTP
   server, and the bundled Web UI together.

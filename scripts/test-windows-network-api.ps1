@@ -76,7 +76,20 @@ try {
     if (!$restored.Sequential -or $restored.UploadSlots -ne 3) { throw 'Advanced controls did not survive restart.' }
     if ((GetJson '/api/controllarr/settings').torrent_network.ProxyPassword -ne 'fixture-secret') { throw 'Encrypted proxy secret did not survive restart.' }
     Write-Output 'PASS advanced controls and encrypted proxy secret survive process restart'
+    $otherHash = 'b' * 40
+    Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$otherHash" } -WebSession $session -UseBasicParsing | Out-Null
+    Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes="$hash|$($hash.ToUpperInvariant())"; deleteFiles='false' } -WebSession $session -UseBasicParsing | Out-Null
+    $remaining = @(TorrentRows)
+    if ($remaining.Count -ne 1 -or $remaining[0].hash -ne $otherHash) { throw 'Batch API deletion did not preserve the unselected torrent' }
+    Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes='all'; deleteFiles='true' } -WebSession $session -UseBasicParsing | Out-Null
+    if (@(TorrentRows).Count -ne 0) { throw 'API hashes=all deletion did not remove the disposable library' }
+    Write-Output 'PASS API deletion deduplicates selection, preserves unselected torrents and supports hashes=all'
     StopFixture
+    $process = Start-Process (Join-Path $directory 'Controllarr.exe') -PassThru
+    Login
+    if (@(TorrentRows).Count -ne 0) { throw 'API-removed fixtures returned after restart' }
+    StopFixture
+    Write-Output 'PASS API batch removals persist across restart'
     Write-Output "Network/API tests passed with isolated profile $profile"
 } finally {
     if ($process -and !$process.HasExited) {

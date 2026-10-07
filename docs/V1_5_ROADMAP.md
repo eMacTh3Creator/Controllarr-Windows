@@ -1,6 +1,6 @@
 # Controllarr for Windows — Roadmap (Historical Product Direction)
 
-> **Status note.** Historical product-direction context, not a numbered release commitment. Windows v2.2.0 ships the x64/ARM64 native desktop with bulk management, active queues, torrent creation/migration, RSS, enforced VPN socket binding, SOCKS5/encryption/IP filtering and sequential/streaming controls. ARM64 remains experimental. See [DESKTOP.md](DESKTOP.md) and [NETWORKING.md](NETWORKING.md) for capability and validation limits. Engine behavior is not assumed to match macOS.
+> **Status note.** Historical product-direction context, not a numbered release commitment. Windows v2.2.1 adds profile-preserving installers, optional import and pause-first bulk removal to the x64/ARM64 native desktop, queues, RSS, torrent creation/migration, VPN binding and advanced-client controls. Built-in automatic installation is still planned; ARM64 remains experimental. See [DESKTOP.md](DESKTOP.md), [INSTALL.md](INSTALL.md) and [NETWORKING.md](NETWORKING.md) for current capabilities and limits. Engine behavior is not assumed to match macOS.
 
 ## Vision
 

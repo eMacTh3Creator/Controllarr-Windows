@@ -60,6 +60,7 @@ Check(result.Cancelled && result.Succeeded == 1, "cancellation stops before the 
 var mutableTargets = new List<string> { "1", "2" };
 result = await TorrentBatch.RunAsync(mutableTargets, hash => { mutableTargets.Clear(); return Task.FromResult(true); });
 Check(result.Succeeded == 2, "batch targets remain fixed if selection changes while running");
+await RemovalTests.RunAsync(Check, args.Contains("--bulk-removal"));
 
 foreach (int size in new[] { 1000, 10000 })
 {
@@ -132,6 +133,8 @@ if (OperatingSystem.IsWindows())
     string delete = await engine.AddTorrentFile(CreateFixture("delete.bin", 2), "TV");
     Check(engine.PollStats().Length == 2, "live engine adds disposable fixture torrents");
     Check(ReferenceEquals(engine.PollStats(), engine.PollStats()), "closely spaced engine/API reads share a cached snapshot");
+    for (int i = 0; i < 400 && engine.PollStats().Any(t => t.State != TorrentState.Seeding); i++) await Task.Delay(50);
+    Check(engine.PollStats().All(t => t.State == TorrentState.Seeding), "queue fixtures finish asynchronous startup before queue enforcement is tested");
     engine.ConfigureQueue(new TorrentQueueing { Enabled = true, MaxActiveDownloads = 0, MaxActiveSeeds = 0, MaxActiveTotal = 0 });
     await engine.TickQueueAsync(true);
     Check(engine.PollStats().All(t => t.State == TorrentState.Queued), "live queue stops excess fixture transfers without treating them as manually paused");

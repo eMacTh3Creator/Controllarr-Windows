@@ -8,7 +8,7 @@ This folder holds the higher-level product and planning docs that sit alongside 
 - [index.html](index.html) — public GitHub Pages launch page for Controllarr for Windows
 - [DESKTOP.md](DESKTOP.md) — native desktop controls, bulk selection/deletion, taskbar behavior, isolated testing and known limits
 - [NATIVE_DESKTOP_VALIDATION.md](NATIVE_DESKTOP_VALIDATION.md) - VM test results, performance measurements and remaining validation limits
-- [INSTALL.md](INSTALL.md) - x64 versus ARM64, complete-folder ZIP installation and building both packages
+- [INSTALL.md](INSTALL.md) - x64/ARM64 installers, profile preservation/import, portable ZIPs and package builds
 - [NETWORKING.md](NETWORKING.md) - enforced adapter binding, LAN separation, SOCKS5/DPAPI, DNS, blocklists and advanced-client limitations
 - [OPERATIONS.md](OPERATIONS.md) — headless/always-on usage, backup/export/restore, recovery rules, post-processing retries, disk-space operations, VPN diagnostics, and the on-disk log
 - [PERFORMANCE.md](PERFORMANCE.md) — large-library scaling notes, the 2s polling model, and tuning guidance for high torrent counts with MonoTorrent
@@ -16,10 +16,10 @@ This folder holds the higher-level product and planning docs that sit alongside 
 
 ## Releases
 
-- [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — self-contained x64/ARM64 ZIP downloads, checksums and per-version notes
-- [Release Notes](../RELEASE_NOTES_v2.2.0.md) - native desktop and torrent-networking release changes, installation and validation limits
+- [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
+- [Release Notes](../RELEASE_NOTES_v2.2.1.md) - installers/profile import and faster bulk removal
 
-The current Windows release is **v2.2.0**, with x64/ARM64 folder packages, managed queues, torrent creation/migration, RSS/watch folders, enforced VPN socket binding, SOCKS5/encryption/blocklist controls and sequential/streaming support. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine.
+The current Windows release is **v2.2.1**, adding installers and pause-first bulk removal to the native desktop, managed queues, RSS/watch folders, VPN binding and advanced-client controls. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

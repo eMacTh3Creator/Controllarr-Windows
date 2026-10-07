@@ -17,10 +17,15 @@ Do not treat a synthetic row test as a guarantee of production stability.
   every selected torrent action.
 - A 250 ms engine snapshot cache shared by closely spaced desktop/API/service
   reads, with mutation invalidation. Session counters reuse that snapshot.
-- Bulk operations execute serially on a worker, with partial failure reporting
-  and cancellation before the next torrent. In-flight operations finish first.
-- Bulk imports/removals checkpoint engine state every 25 successful changes and again
-  at the end, instead of serializing the entire library for every removed row.
+- Most bulk actions execute serially on a worker, with partial failures and
+  cancellation. Removal pauses the whole selection first, overlaps up to 16
+  stop operations (two-second final tracker waits), then deletes files serially.
+  Cancel still stops selected startup/metadata transfers, but prevents further
+  deletions. In-flight disk work finishes safely.
+- Bulk imports checkpoint every 25 successful changes. Removal uses lightweight
+  engine/paused/options saves every 100 processed targets or five seconds and
+  at the end, without rewriting the remaining library's fast-resume files.
+  API deletion also saves category state only once per batch.
 - Engine state writes are serialized and use a temporary file plus replacement.
 - Resume progress uses compatible atomic checkpoints under one writer, rather
   than concurrent library startup/state writes. The poll loop checkpoints every
@@ -37,6 +42,11 @@ Do not treat a synthetic row test as a guarantee of production stability.
   explicit; manually paused torrents and errors are excluded.
 - RSS intake uses one cancellable worker with bounded bodies/history and one
   engine/history checkpoint per scan rather than per feed entry.
+
+v2.2.1 controlled VM removal benchmark: 2,376 paused local 16 KiB fixture torrents
+and their files removed in 37.37 seconds. Eight active fixtures with a tracker
+that accepted HTTP connections but never replied were removed in 2.06 seconds.
+These are disposable local checks, not real-peer, SMB or large-payload guarantees.
 
 ## Validation
 

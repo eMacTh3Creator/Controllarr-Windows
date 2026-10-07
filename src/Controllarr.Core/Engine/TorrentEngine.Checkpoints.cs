@@ -27,7 +27,7 @@ public sealed partial class TorrentEngine
     {
         foreach (var manager in _managersByHash.Values)
         {
-            if (_checkingHashes.ContainsKey(manager.InfoHashes.V1OrV2.ToHex()) || !manager.HasMetadata || !manager.HashChecked || manager.State is
+            if (_removalPending.ContainsKey(manager.InfoHashes.V1OrV2.ToHex()) || _checkingHashes.ContainsKey(manager.InfoHashes.V1OrV2.ToHex()) || !manager.HasMetadata || !manager.HashChecked || manager.State is
                 MonoTorrent.Client.TorrentState.Hashing or MonoTorrent.Client.TorrentState.HashingPaused) continue;
             try
             {

@@ -510,14 +510,14 @@ namespace Controllarr.Core.Server
                 string hashStr = form.GetValueOrDefault("hashes", "");
                 string deleteFilesStr = form.GetValueOrDefault("deleteFiles", "false");
                 bool deleteFiles = deleteFilesStr == "true" || deleteFilesStr == "1";
-                var hashList = ParsePipeSeparatedHashes(hashStr);
-
-                foreach (string hash in hashList)
+                IEnumerable<string> hashList = hashStr == "all" ? engine.PollStats().Select(t => t.InfoHash).ToArray() : ParsePipeSeparatedHashes(hashStr);
+                var result = await engine.RemoveManyAsync(hashList, deleteFiles);
+                store.SetCategoryMap(engine.SnapshotCategories());
+                foreach (string hash in result.SucceededHashes)
                 {
-                    await engine.Remove(hash, deleteFiles);
-                    store.NoteCategoryForHash(hash, null);
                     logger.Info("API", $"Removed torrent {hash[..Math.Min(8, hash.Length)]}... deleteFiles={deleteFiles}");
                 }
+                foreach (var failure in result.Failures) logger.Warn("API", $"Remove {failure.InfoHash}: {failure.Message}");
 
                 return Results.Ok();
             });

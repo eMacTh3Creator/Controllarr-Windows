@@ -21,7 +21,10 @@ jobs:
       - name: Validate public download links
         run: node scripts/test-site.cjs
       - name: Headless catalog and bulk-action tests
-        run: dotnet run --project tests/Controllarr.Desktop.Tests -c Release
+        run: dotnet run --project tests/Controllarr.Desktop.Tests -c Release -- --bulk-removal
+      - name: Previous-profile import safeguards
+        shell: powershell
+        run: ./scripts/test-profile-import.ps1
       - name: Windows XAML and multi-selection tests (no engine startup)
         run: dotnet run --project tests/Controllarr.Windows.UI.Tests -c Release
       - name: Publish self-contained desktop
@@ -40,9 +43,22 @@ jobs:
           $archive = "publish/Controllarr-$version-${{ matrix.runtime }}.zip"
           Compress-Archive -Path publish/${{ matrix.runtime }}/* -DestinationPath $archive
           "$((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($archive))" | Set-Content publish/SHA256SUMS-${{ matrix.runtime }}.txt -Encoding ASCII
+      - name: Build installer and validate x64 install/upgrade/uninstall
+        shell: powershell
+        run: |
+          $compiler = ./scripts/install-inno-for-build.ps1 -DestinationDirectory "$env:RUNNER_TEMP\Controllarr-Inno"
+          $project = [xml](Get-Content src/Controllarr.App/Controllarr.App.csproj)
+          $version = ($project.Project.PropertyGroup | Where-Object Version | Select-Object -First 1).Version
+          ./scripts/package-installer.ps1 -PayloadDirectory "publish/${{ matrix.runtime }}" -RuntimeIdentifier '${{ matrix.runtime }}' -Version $version -OutputDirectory publish -CompilerPath $compiler
+          $setup = "publish/Controllarr-$version-${{ matrix.runtime }}-Setup.exe"
+          "$((Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($setup))" | Add-Content publish/SHA256SUMS-${{ matrix.runtime }}.txt -Encoding ASCII
+          if ('${{ matrix.runtime }}' -eq 'win-x64') {
+            ./scripts/test-windows-installer.ps1 -InstallerPath ([IO.Path]::GetFullPath($setup)) -RuntimeIdentifier win-x64 -Version $version
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Controllarr-native-desktop-${{ matrix.runtime }}
           path: |
             publish/Controllarr-*-${{ matrix.runtime }}.zip
+            publish/Controllarr-*-${{ matrix.runtime }}-Setup.exe
             publish/SHA256SUMS-${{ matrix.runtime }}.txt

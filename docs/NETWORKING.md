@@ -1,6 +1,6 @@
 # Torrent Networking and Advanced Controls
 
-Applies to Windows v2.2.0, not historical v2.1.19 builds.
+Applies to Windows v2.2.0 and v2.2.1, not historical v2.1.19 builds.
 Windows uses MonoTorrent 3.0.2; do not assume macOS/libtorrent behavior.
 
 ## VPN Binding

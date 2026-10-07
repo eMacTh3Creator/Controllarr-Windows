@@ -2,11 +2,12 @@
   'use strict';
   var repository = 'eMacTh3Creator/Controllarr-Windows';
 
-  function selectDownloadAsset(release, runtime) {
+  function selectDownloadAsset(release, runtime, format) {
+    format = format || 'zip';
     if (!release || release.draft || release.prerelease ||
         !/^v?\d+\.\d+\.\d+$/.test(release.tag_name) ||
-        ['win-x64', 'win-arm64'].indexOf(runtime) === -1) return null;
-    var name = 'Controllarr-' + release.tag_name.replace(/^v/, '') + '-' + runtime + '.zip';
+        ['win-x64', 'win-arm64'].indexOf(runtime) === -1 || ['zip', 'setup'].indexOf(format) === -1) return null;
+    var name = 'Controllarr-' + release.tag_name.replace(/^v/, '') + '-' + runtime + (format === 'setup' ? '-Setup.exe' : '.zip');
     var expected = 'https://github.com/' + repository + '/releases/download/' +
       release.tag_name + '/' + name;
     var assets = Array.isArray(release.assets) ? release.assets : [];
@@ -19,7 +20,7 @@
   if (typeof document === 'undefined' || typeof fetch !== 'function' || typeof AbortController !== 'function') return;
 
   // Links always work immediately, including offline/API-limited/no-JS visits.
-  // Only upgrade their direct ZIP targets when a matching stable asset exists.
+  // Only upgrade their direct targets when the same CPU and package format exist.
   var controller = new AbortController();
   var timeout = setTimeout(function () { controller.abort(); }, 8000);
   fetch('https://api.github.com/repos/' + repository + '/releases/latest', {
@@ -28,7 +29,7 @@
     .then(function (response) { if (!response.ok) throw new Error('Release lookup failed'); return response.json(); })
     .then(function (release) {
       document.querySelectorAll('a[data-dl]').forEach(function (link) {
-        var asset = selectDownloadAsset(release, link.getAttribute('data-dl'));
+        var asset = selectDownloadAsset(release, link.getAttribute('data-dl'), link.getAttribute('data-format'));
         if (asset) link.href = asset.browser_download_url;
       });
     })

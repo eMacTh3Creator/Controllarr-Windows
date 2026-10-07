@@ -1,58 +1,103 @@
 # Install Controllarr for Windows
 
-This guide covers v2.2.0. Both packages contain the same native WPF desktop;
-ARM64 remains experimental. Releases before v2.2.0 used a different EXE format.
+v2.2.1 provides a full per-user installer and optional portable ZIP for each CPU.
+Both contain the same native WPF desktop. No separate .NET, Edge or WebView2
+installation is needed. ARM64 remains experimental.
 
-| Package | Use On |
-|---------|--------|
-| [Controllarr-2.2.0-win-x64.zip](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-x64.zip) | 64-bit Intel/AMD Windows 10/11 PCs, including an x64 Plexbox |
-| [Controllarr-2.2.0-win-arm64.zip](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-arm64.zip) | Windows 11 on ARM devices; experimental |
+| Installer | Use On |
+|-----------|--------|
+| [Download x64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-x64-Setup.exe) | Intel/AMD 64-bit Windows 10/11, including an x64 Plexbox |
+| [Download ARM64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
-Check Settings > System > About > System type if unsure. ARM64 is not the
-correct build for an Intel/AMD PC. These are not macOS applications.
+Check Windows Settings > System > About > System type if unsure. ARM64 is not
+the correct build for an Intel/AMD PC. These are not macOS applications.
 
-1. Back up the Controllarr profile and stop any existing Controllarr process.
-2. Extract the entire chosen ZIP into a new permanent app folder. Do not run
-   inside the ZIP or copy only the EXE; its runtime DLLs must remain alongside it.
-3. Run `Controllarr.exe`. No separate .NET, Edge or WebView2 install is needed.
-4. Use the native window for local control. Optional browser/API access defaults
-   to `http://127.0.0.1:8791`, with `admin` / `adminadmin`; change these before LAN use.
+## Install or Upgrade
 
-Settings, downloaded metadata, DPAPI credentials and logs are stored under
-`%AppData%\Controllarr`, separately from the executable folder. Do not launch
-two architecture copies against the same profile at once. Switching architecture
-does not intentionally reset the profile; keep a backup before any upgrade.
-Custom isolated profiles are described in [DESKTOP.md](DESKTOP.md).
+1. Back up `%AppData%\Controllarr`. Finish or cancel any removal batch, then
+   choose **Exit** from the old app's tray menu. Closing the window may leave it
+   running. Do not force-kill during deletion or state saves.
+2. Run the installer matching your CPU. It installs the complete app under
+   `%LocalAppData%\Programs\Controllarr` by default without administrator access,
+   with a Start menu entry, optional desktop shortcut, and Windows uninstaller.
+3. On **Settings and torrent library**, choose **Keep existing settings** for a
+   normal upgrade, including transition from a portable build. Your current
+   AppData profile is automatically reused, not reset or re-imported.
+4. For a backup or custom profile, select **Import a previous Controllarr Windows
+   profile folder** and browse to the folder containing `state.json`, not the
+   executable or torrent download folder. Exit any app using that source first.
+5. Launch Controllarr. Fresh-profile browser/API access defaults to
+   `http://127.0.0.1:8791`, with `admin` / `adminadmin`; change these before LAN use.
 
-Verify the ZIP against the release's [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/SHA256SUMS.txt) with `Get-FileHash .\Controllarr-2.2.0-win-x64.zip -Algorithm SHA256` (substitute the ARM64 filename as needed). Never update only the EXE: stop the app and replace the entire application folder, keeping your separate profile and a backup.
+Later installers upgrade the same per-user installation. This is a packaging
+foundation for a future built-in updater; automated Windows download/installation
+is not implemented in this release.
 
-The packages are unsigned. Obtain them only from the project or your own build,
-verify the published SHA-256 checksum when provided, and do not disable Defender,
-SmartScreen or the Windows firewall globally. ZIP extraction does not imply a
-trusted publisher. A checksum detects corruption; it is not a code signature.
+## Profile Import
 
-Earlier ARM64 single-file builds reproduced an API AccessViolation. This
-release uses a complete app folder instead; subsequent short checks passed,
-but the root cause and long-duration stability remain unproven. Use an isolated
-profile before migrating a production library. x64 testing in an ARM VM uses
-Windows emulation and does not replace Intel/AMD hardware validation.
+Import copies settings/categories (`state.json`), torrent metadata/resume data
+(`resume`), desktop layout and RSS history. Cached metadata paths are rebased to
+the new profile; payload paths stay unchanged. Downloaded files are never copied,
+moved or deleted by installation. Payloads must still be present at their recorded
+paths for torrents to resume normally.
 
-Enable **Enforce VPN-only torrent traffic** and select your
-actual VPN adapter in Settings. Save, quit and reopen the app. Torrent sockets
-are pinned to that adapter; the LAN WebUI/API listener is separate. Configure
-the WebUI bind address and provider's allow-LAN/firewall rules independently.
-Keep the provider's kill switch on. Read [NETWORKING.md](NETWORKING.md) before
-production use: protected modes have deliberate discovery/IPv6 restrictions,
-and real-provider packet-capture/drop/reconnect testing is still required.
+Saved DPAPI passwords can be imported only with the Windows account/DPAPI keys
+that encrypted them, normally on the same PC. Uncheck **Import saved passwords**
+when transferring from another account/PC. Enter passwords again in Settings;
+the imported WebUI is restricted to loopback until you explicitly restore LAN
+access, avoiding fallback credentials exposed on the network.
 
-## Build Both Packages
+Import validates first, rejects links/junctions, and limits metadata to 100,000
+files / 2 GiB (32 MiB per JSON file). Existing target metadata is backed up under
+`%AppData%\Controllarr-profile-backups\<timestamp-id>` before replacement, with
+rollback on handled copy/move errors. Source files are untouched. Keep a separate
+backup for power loss/storage failure. Backups can contain private paths and API
+keys; protect them like your profile.
 
-On Windows with a stable .NET SDK:
+Uninstall removes app files, not the AppData profile or downloaded files. Do not
+run two architectures against the same profile. Custom profiles use
+`CONTROLLARR_PROFILE_DIRECTORY`; see [DESKTOP.md](DESKTOP.md).
+
+## Portable Alternative
+
+[x64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-x64.zip)
+and [ARM64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-arm64.zip)
+remain available. Stop the old app, extract every file into a new permanent folder,
+and run `Controllarr.exe` there. Keep its DLLs together; do not run inside the ZIP
+or update only the EXE. Settings remain in AppData.
+
+## Security and Validation Limits
+
+Installers and app binaries are unsigned; SmartScreen may warn of an unknown
+publisher. Download only from the project or your own build and verify
+[SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/SHA256SUMS.txt):
 
 ```powershell
-.\scripts\package-windows.ps1
+Get-FileHash .\Controllarr-2.2.1-win-x64-Setup.exe -Algorithm SHA256
 ```
 
-The script validates the solution, runs desktop logic and WPF tests, and writes
-both self-contained ZIPs and `SHA256SUMS.txt` under `publish\packages`.
-It does not tag, upload or publish a GitHub release.
+A checksum detects corruption; it is not a code signature. Do not disable
+Defender, SmartScreen or the firewall globally. The installer uses a process-local
+PowerShell execution-policy override for its bundled helper, not a persistent
+policy change.
+
+Earlier ARM64 single-file builds reproduced an API AccessViolation. Folder builds
+passed short checks, but the root cause and long-term stability remain unproven.
+Try an isolated profile before migrating production. x64 tests on an ARM VM use
+emulation and do not replace physical Intel/AMD hardware tests.
+
+For VPN use, select **Enforce VPN-only torrent traffic** and the actual adapter,
+save, exit and reopen. The LAN WebUI/API listener is independent; provider
+allow-LAN/firewall rules still matter. Keep the provider's kill switch on and read
+[NETWORKING.md](NETWORKING.md) before production use.
+
+## Build Packages
+
+On Windows with a stable .NET SDK and Inno Setup 6 (6.7.3 tested):
+
+```powershell
+.\scripts\package-windows.ps1 -CompilerPath 'C:\Path\To\Inno Setup 6\ISCC.exe'
+```
+
+The script runs solution, engine and WPF prechecks, then creates both CPU ZIPs,
+both Setup EXEs and checksums under `publish\packages`. It does not tag or upload.

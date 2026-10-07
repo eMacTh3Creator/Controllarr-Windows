@@ -157,14 +157,21 @@ public partial class DesktopViewModel : ObservableObject
         var selected = _selectedRows.ToArray();
         bool? deleteFiles = DesktopDialogs.ConfirmRemoval(selected);
         if (deleteFiles == null) return;
-        int removed = 0;
-        await RunBatchAsync(deleteFiles.Value ? "Delete files and remove" : "Remove (keep files)", selected,
-            async hash =>
-            {
-                bool success = await _runtime.DesktopEngine!.Remove(hash, deleteFiles.Value, persist: false);
-                if (success && ++removed % 25 == 0) await _runtime.DesktopEngine.SaveEngineStateAsync();
-                return success;
-            });
+        bool reporting = true;
+        var progress = new Progress<RemovalProgress>(p =>
+        {
+            if (reporting) OperationStatus = $"{p.Stage}: {p.Completed:N0} / {p.Total:N0}";
+        });
+        try
+        {
+            await RunBatchAsync(deleteFiles.Value ? "Delete files and remove" : "Remove (keep files)", selected,
+                _ => Task.FromResult(false), async (hashes, cancellation) =>
+                {
+                    try { return await _runtime.DesktopEngine!.RemoveManyAsync(hashes, deleteFiles.Value, progress, cancellation); }
+                    finally { reporting = false; }
+                }, checkpointResume: false);
+        }
+        finally { reporting = false; }
     }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
@@ -204,7 +211,8 @@ public partial class DesktopViewModel : ObservableObject
         _detailGate.Release();
     }
 
-    private async Task RunBatchAsync(string action, IEnumerable<TorrentRow> rows, Func<string, Task<bool>> operation)
+    private async Task RunBatchAsync(string action, IEnumerable<TorrentRow> rows, Func<string, Task<bool>> operation,
+        Func<string[], CancellationToken, Task<BatchResult>>? batchOperation = null, bool checkpointResume = true)
     {
         if (!CanOperate) return;
         string[] hashes = rows.Select(r => r.InfoHash).ToArray();
@@ -216,7 +224,8 @@ public partial class DesktopViewModel : ObservableObject
         var progress = new Progress<int>(count => OperationStatus = $"{action}: {count:N0} / {hashes.Length:N0}");
         try
         {
-            var result = await Task.Run(() => TorrentBatch.RunAsync(hashes, operation, progress, cancellation.Token));
+            var result = await Task.Run(() => batchOperation != null ? batchOperation(hashes, cancellation.Token)
+                : TorrentBatch.RunAsync(hashes, operation, progress, cancellation.Token));
             _runtime.PersistDesktopCategories();
             OperationStatus = $"{action}: {result.Succeeded:N0} succeeded, {result.Failures.Count:N0} failed" + (result.Cancelled ? " (cancelled)" : "");
             foreach (var failure in result.Failures) Logger.Instance.Warn("Desktop", $"{action} {failure.InfoHash}: {failure.Message}");
@@ -232,7 +241,7 @@ public partial class DesktopViewModel : ObservableObject
         }
         finally
         {
-            try { if (_runtime.DesktopEngine != null) await _runtime.DesktopEngine.SaveEngineStateAsync(); }
+            try { if (_runtime.DesktopEngine != null) await _runtime.DesktopEngine.SaveEngineStateAsync(checkpointResume); }
             finally { _batchCancellation = null; IsBusy = false; }
         }
     }

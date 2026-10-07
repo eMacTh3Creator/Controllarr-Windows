@@ -3,7 +3,8 @@
 The redesigned desktop is WPF, not a WebView2 portal. It talks directly to
 MonoTorrent and the runtime services. The browser WebUI and qBittorrent API
 remain separate remote-management interfaces; no WebUI login is needed locally.
-This redesign ships in v2.2.0, as separate x64 and experimental ARM64 packages.
+The current v2.2.1 release adds full x64 and experimental ARM64 installers,
+profile preservation/import and pause-first bulk removal. See [INSTALL.md](INSTALL.md).
 
 ## Transfer Workspace
 
@@ -41,6 +42,13 @@ operations snapshot their target hashes; changing selection afterwards does
 not change the active job. Cancel stops before the next torrent, not halfway
 through an ongoing engine/disk operation. Partial failures appear in the status
 bar, a summary dialog and Log.
+
+Removal first pauses the entire selection, then overlaps up to 16 stop operations
+with bounded final tracker waits. Progress shows pausing, stopping, then removal
+or file deletion. Disk deletion stays serial. Cancel still finishes stopping the
+selected set, but prevents further deletions; untouched items remain paused after
+restart. Resume/force-start requests are rejected while targets are pending.
+Periodic removal saves do not rewrite every remaining torrent's resume cache.
 
 ## Adding and Inspecting
 

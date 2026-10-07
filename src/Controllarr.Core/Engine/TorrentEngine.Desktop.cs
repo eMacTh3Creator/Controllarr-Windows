@@ -69,6 +69,7 @@ public sealed partial class TorrentEngine
     {
         string hash = manager.InfoHashes.V1OrV2.ToHex();
         await ApplyTorrentOptionsAsync(manager, OptionsFor(hash));
+        if (_removalPending.ContainsKey(hash)) return;
         if (_shuttingDown || !NetworkPolicy.Allowed) { _queuedHashes[hash] = 0; InvalidateStats(); return; }
         if (_queueSettings.Enabled && !OptionsFor(hash).ForceStart)
         { _queuedHashes[hash] = 0; InvalidateStats(); return; }
@@ -78,9 +79,9 @@ public sealed partial class TorrentEngine
 
     private async Task StartNetworkGuardedAsync(TorrentManager manager)
     {
-        if (_shuttingDown || !NetworkPolicy.Allowed) return;
+        if (_shuttingDown || !NetworkPolicy.Allowed || _removalPending.ContainsKey(manager.InfoHashes.V1OrV2.ToHex())) return;
         await ApplyTorrentOptionsAsync(manager, OptionsFor(manager.InfoHashes.V1OrV2.ToHex()));
-        if (!_shuttingDown && NetworkPolicy.Allowed) await manager.StartAsync();
+        if (!_shuttingDown && NetworkPolicy.Allowed && !_removalPending.ContainsKey(manager.InfoHashes.V1OrV2.ToHex())) await manager.StartAsync();
     }
 
     public async Task TickQueueAsync(bool transfersAllowed)
@@ -116,10 +117,11 @@ public sealed partial class TorrentEngine
 
     public async Task<bool> SetForceStartAsync(string hash, bool forced, bool persist = true)
     {
+        if (_removalPending.ContainsKey(hash)) return false;
         await _queueGate.WaitAsync();
         try
         {
-        if (FindManager(hash) is not { } manager) return false;
+        if (_removalPending.ContainsKey(hash) || FindManager(hash) is not { } manager) return false;
         _options.AddOrUpdate(hash, OptionsFor(hash) with { ForceStart = forced }, (_, previous) => previous with { ForceStart = forced });
         if (forced) { _pausedHashes.TryRemove(hash, out _); await StartManagedAsync(manager); }
         if (persist) await SaveEngineStateAsync();

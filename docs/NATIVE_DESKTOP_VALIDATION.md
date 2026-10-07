@@ -1,11 +1,46 @@
 # Native Desktop Validation
 
-Date: October 7, 2026. Release: `2.2.0`. Original candidates:
+Date: October 7, 2026. Current release: `2.2.1`. Historical original candidates:
 `2.2.0-preview.1` and `2.2.0-preview.2`. Baseline results below refer to
 preview.1 unless noted; preview hashes are preserved as historical evidence.
 Host: macOS cross-build; test target: the user's running Windows 11 ARM64
 Parallels VM (10 virtual CPUs, 24 GB RAM). All engine fixtures and the live app
 use disposable lab folders, never the user's production profile.
+
+## v2.2.1 Prechecks
+
+Release source builds passed on the macOS cross-build host and Windows VM.
+The default suite passed 106 logic/real-engine checks (107 with the large-removal
+fixture enabled); the WPF harness passed
+all 13 pages, selection/filter/layout checks and viewport virtualization
+(13 realized rows / 10,000 items). Removal tests cover pause-all before deletion,
+bounded worker concurrency, duplicates, partial failure reporting, cancellation,
+blocked resume/force-start, metadata-stage cancellation, keep-files behavior,
+payload deletion, restart persistence and moved-cache restoration. A stale
+removed metadata entry is skipped without discarding the remaining library.
+
+Controlled removal measurements on this VM:
+
+- 2,376 paused local 16 KiB torrents and payload files: 37.37 seconds on the final source (37.27 seconds on the earlier candidate).
+- Eight active fixtures with a local HTTP tracker accepting but never replying:
+  2.06 seconds, with successful removal of all eight.
+
+Neither measurement is a large-payload, real-peer or SMB throughput guarantee.
+The site test covers direct installer/ZIP URLs per CPU and safe API-failure
+fallbacks. Profile-import tests cover settings/categories, same-user DPAPI,
+metadata-only copying, backups, validation without mutation, skipped passwords
+with loopback-only WebUI, rejection of malformed JSON/undecryptable credentials,
+read-only backup handling, and rollback after a locked target file prevents replacement.
+
+Both x64 and ARM64 installer candidates passed isolated silent install,
+keep-existing-profile, in-place reinstall/import-with-backup and uninstall
+checks. Complete payload folders were installed; profile metadata survived
+uninstall. Test-only identities, app directories and profiles were used, with
+no production shortcuts/profile modified. Installers and app binaries are unsigned.
+
+Historical v2.2.0 results follow. Real VPN provider packet capture, physical
+x64 hardware tests, multi-day load, and proof of the older ARM64 crash's root
+cause remain outside these prechecks.
 
 ## v2.2.0 Source Prechecks
 

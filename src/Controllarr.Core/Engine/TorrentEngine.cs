@@ -205,11 +205,13 @@ public sealed partial class TorrentEngine : IDisposable
                 // Older profiles used library-owned writes, which can overlap
                 // startup and SaveState. Disable them before restoring managers.
                 var saved = BEncodedValue.Decode<BEncodedDictionary>(File.ReadAllBytes(_stateFilePath));
+                RebaseProfileCache(saved, _resumeDataDirectory);
                 ((BEncodedDictionary)saved["Settings"])["AutoSaveLoadFastResume"] = new BEncodedString("False");
                 restored = ClientEngine.RestoreStateAsync(saved.Encode(), factories).GetAwaiter().GetResult();
             }
-            catch
+            catch (Exception ex)
             {
+                Services.Logger.Instance.Error("Engine", $"Could not restore torrent state: {ex.Message}");
                 restored = null; // corrupt/incompatible state — start fresh
             }
         }
@@ -372,12 +374,14 @@ public sealed partial class TorrentEngine : IDisposable
 
     public async Task<bool> Resume(string infoHash)
     {
+        if (_removalPending.ContainsKey(infoHash)) return false;
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
 
         await _queueGate.WaitAsync();
         try
         {
+            if (_removalPending.ContainsKey(infoHash) || !ReferenceEquals(FindManager(infoHash), mgr)) return false;
             _pausedHashes.TryRemove(infoHash, out _);
             await StartManagedAsync(mgr);
             InvalidateStats();
@@ -399,23 +403,9 @@ public sealed partial class TorrentEngine : IDisposable
         await _queueGate.WaitAsync();
         try
         {
-            await StopManagerAsync(mgr);
-            await _engine.RemoveAsync(mgr,
-                deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
-
-            _managersByHash.TryRemove(infoHash, out _);
-            InvalidateStats();
-
-            _categories.TryRemove(infoHash, out _);
-            _addedDates.TryRemove(infoHash, out _);
-            _pausedHashes.TryRemove(infoHash, out _);
-            _queuedHashes.TryRemove(infoHash, out _);
-            _options.TryRemove(infoHash, out _);
-
-            lock (_filteredLock)
-                _filteredHashes.Remove(infoHash);
-
-            if (persist) await SaveEngineStateAsync();
+            await StopManagerAsync(mgr, TimeSpan.FromSeconds(2));
+            await RemoveStoppedAsync(infoHash, mgr, deleteFiles);
+            if (persist) await SaveEngineStateAsync(checkpointResume: false);
             return true;
         }
         catch (Exception ex)
@@ -894,12 +884,12 @@ public sealed partial class TorrentEngine : IDisposable
     /// Persists the full engine state (the list of torrents, their save paths
     /// and state) so they are re-added automatically on the next launch.
     /// </summary>
-    public async Task SaveEngineStateAsync()
+    public async Task SaveEngineStateAsync(bool checkpointResume = true)
     {
         await _stateSaveGate.WaitAsync();
         try
         {
-            await WriteResumeCheckpointsAsync();
+            if (checkpointResume) await WriteResumeCheckpointsAsync();
             string temporary = _stateFilePath + ".tmp";
             await _engine.SaveStateAsync(temporary);
             File.Move(temporary, _stateFilePath, overwrite: true);
@@ -974,7 +964,7 @@ public sealed partial class TorrentEngine : IDisposable
     // Private helpers
     // ───────────────────────────────────────────────────────────
 
-    private async Task StopManagerAsync(TorrentManager manager)
+    private async Task StopManagerAsync(TorrentManager manager, TimeSpan? trackerTimeout = null)
     {
         // StartingMode finishes asynchronously after StartAsync returns. Let its
         // short resume-data initialization finish before a stop/move/remove.
@@ -988,7 +978,7 @@ public sealed partial class TorrentEngine : IDisposable
         // stopping token. Retry only that specific race, never ignore other failures.
         for (int attempt = 0; ; attempt++)
         {
-            try { await manager.StopAsync(); return; }
+            try { await manager.StopAsync(trackerTimeout ?? TimeSpan.FromSeconds(10)); return; }
             catch (ObjectDisposedException) when (!_disposed && attempt < 2)
             {
                 if (manager.State == MonoTorrent.Client.TorrentState.Stopped) return;
@@ -1090,6 +1080,7 @@ public sealed partial class TorrentEngine : IDisposable
             Progress = (float)(mgr.Progress / 100.0),
             State = _queuedHashes.ContainsKey(hash) ? TorrentState.Queued : MapState(mgr.State),
             Paused = !_queuedHashes.ContainsKey(hash) && (mgr.State == MonoTorrent.Client.TorrentState.Paused
+                     || mgr.State == MonoTorrent.Client.TorrentState.HashingPaused
                      || mgr.State == MonoTorrent.Client.TorrentState.Stopped),
             DownloadRate = mgr.Monitor.DownloadSpeed,
             UploadRate = mgr.Monitor.UploadSpeed,

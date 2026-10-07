@@ -1,4 +1,5 @@
-param([string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'publish\packages'))
+param([string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'publish\packages'),
+    [string]$CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $root = Split-Path $PSScriptRoot -Parent
@@ -11,6 +12,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Desktop logic/engine tests failed' }
     & dotnet run --project tests/Controllarr.Windows.UI.Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'WPF tests failed' }
+    & (Join-Path $PSScriptRoot 'test-profile-import.ps1')
     $project = [xml](Get-Content src/Controllarr.App/Controllarr.App.csproj)
     $version = ($project.Project.PropertyGroup | Where-Object Version | Select-Object -First 1).Version
     New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
@@ -30,6 +32,9 @@ try {
         Compress-Archive -Path "$stage\*" -DestinationPath $archive
         $checksums += "$((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($archive))"
         Write-Output "Packaged $archive"
+        & (Join-Path $PSScriptRoot 'package-installer.ps1') -PayloadDirectory $stage -RuntimeIdentifier $runtime -Version $version -OutputDirectory $OutputDirectory -CompilerPath $CompilerPath
+        $setup = Join-Path $OutputDirectory "Controllarr-$version-$runtime-Setup.exe"
+        $checksums += "$((Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($setup))"
         # Only this invocation's generated staging folder is removed.
         Remove-Item $stage -Recurse -Force
     }

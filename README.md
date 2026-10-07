@@ -18,7 +18,7 @@
 
 Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Current release:** [v2.2.0](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.0) ships the standalone native WPF desktop, enforced torrent adapter binding and advanced client controls for both x64 and ARM64. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
+**Current release:** [v2.2.1](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.1) adds full x64/ARM64 installers with profile preservation/import and faster bulk removal. The native WPF desktop pauses the whole selection first, overlaps bounded stop operations, and keeps disk deletion controlled and cancellable. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
 
 **Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
 
@@ -26,10 +26,10 @@ Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https:
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
-| **Windows x64** | [Download v2.2.0 ZIP directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-x64.zip) | Intel/AMD Windows 10/11, including x64 Plexboxes |
-| **Windows ARM64** | [Download v2.2.0 ZIP directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/Controllarr-2.2.0-win-arm64.zip) | Windows 11 on ARM; experimental |
+| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
+| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
-Extract the entire ZIP into a new app folder and launch `Controllarr.exe` there; keep its DLLs alongside it. No installer, separate .NET runtime, Edge or WebView2 is required. Choose x64 for Intel/AMD PCs, not ARM64. The [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.0/SHA256SUMS.txt) release asset contains checksums. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md).
+Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -324,7 +324,7 @@ dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r win-arm6
   -p:PublishSingleFile=false -o publish/win-arm64
 ```
 
-Distribute each entire output folder as a separate ZIP, not just its EXE. No .NET runtime installation is required. WebUI assets are embedded in the app. On Windows, `scripts/package-windows.ps1` builds both ZIPs and SHA-256 checksums; CI also produces both architecture artifacts without publishing a release.
+Distribute the complete folder, never just its EXE. WebUI assets are embedded; no separate .NET install is needed. On Windows, `scripts/package-windows.ps1` with Inno Setup 6 builds both CPU installers, portable ZIPs and checksums. CI produces the same formats without publishing a release. See [INSTALL.md](docs/INSTALL.md).
 
 ### Open in Visual Studio
 
