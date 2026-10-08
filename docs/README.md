@@ -23,7 +23,7 @@ This folder holds the higher-level product and planning docs that sit alongside 
 - [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
 - [Release Notes](../RELEASE_NOTES_v2.3.0.md) - clean torrent folders, safe moves, scoped extraction and storage persistence
 
-The current Windows release is **v2.3.0**, correcting Sonarr import paths and adding confirmed layout repair, authenticated Remote Protocol 1, bounded events and optional LAN discovery. Existing files are not automatically reorganized. Both CPU builds retain bound DHT, native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. iOS is a source/simulator preview without reliable APNs background push or public Apple distribution. Windows uses MonoTorrent and is not behaviorally identical to the Mac engine. Built-in automatic installation is still planned.
+The current Windows release is **v2.3.0**, correcting Sonarr import paths and adding confirmed layout repair, authenticated Remote Protocol 1, bounded events and optional LAN discovery. Existing files are not automatically reorganized. Both CPU builds retain bound DHT, native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. The native iOS preview has an Apple-signed build active in internal TestFlight testing; reliable APNs background push and public beta access remain unfinished. Windows uses MonoTorrent and is not behaviorally identical to the Mac engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

@@ -2,8 +2,10 @@
 
 Controllarr v2.3.0 supports the native iPhone/iPad remote manager in the
 [Mac repository's iOS project](https://github.com/eMacTh3Creator/Controllarr/tree/main/iOS).
-Requires iOS 17+. Source/simulator packages are developer previews, not public
-IPAs or TestFlight releases.
+Requires iOS 17+. Apple-signed device build 1.0.0 (2) is active for internal
+TestFlight testing. Invited internal testers install using Apple's TestFlight
+app. Public beta access is not available yet; source/simulator downloads cannot
+be installed on a physical iPhone.
 
 Change default credentials, set WebUI host to `0.0.0.0` or a LAN IP and enable
 **Advertise to iOS on the LAN**, then restart. Allow private-network firewall
@@ -25,7 +27,7 @@ trackers/peers, health clearing, post retries and diagnostics.
 Completion/error/VPN-disconnect/port-change alerts use foreground polling and
 best-effort iOS background refresh for the selected server. Background delivery
 is not guaranteed; force-quitting can stop it. The 512-event in-memory journal
-is not an audit log. Reliable APNs push and Apple distribution remain unfinished.
+is not an audit log. Reliable APNs push and public Apple distribution remain unfinished.
 
 Authenticated `/api/controllarr/remote`, `/remote/torrents` and `/remote/events`
 routes use existing SID login. Windows schemas stay snake_case, declared by
