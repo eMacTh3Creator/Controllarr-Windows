@@ -1,6 +1,6 @@
 # Torrent Networking and Advanced Controls
 
-Applies to Windows v2.2.3, not historical macOS/v2.1.19 builds.
+Applies to Windows v2.2.4 (including v2.2.3 networking repairs), not historical macOS/v2.1.19 builds.
 
 v2.2.2 adds bounded download peer headroom (25% by default, 0 disables it) and
 global/per-torrent cap diagnostics. This changes scheduling, not routing: no

@@ -1,7 +1,7 @@
 # Operations Guide
 
 This doc covers the operator-focused foundations available in Controllarr for
-Windows. The current release is v2.2.3, including VPN-bound DHT, discovery repairs, queue repair, download peer
+Windows. The current release is v2.2.4, including clean torrent folders, safe moves, VPN-bound DHT, discovery repairs, queue repair, download peer
 headroom, transfer diagnosis, installers, profile import,
 pause-first bulk removal and enforced adapter binding. The operator workflows below reflect
 the Windows engine, paths, and tooling.

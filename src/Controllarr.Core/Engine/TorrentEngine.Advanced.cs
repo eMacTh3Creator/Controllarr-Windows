@@ -23,6 +23,7 @@ public sealed partial class TorrentEngine
         try
         {
             _duplicatePolicy = settings.DuplicateTorrentPolicy;
+            _createTorrentSubfolders = settings.CreateTorrentSubfolders;
             if (!NetworkPolicy.Matches(settings) && !NetworkPolicy.RestartRequired)
             {
                 TorrentNetworkPolicy.Validate(settings);

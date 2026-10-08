@@ -1,11 +1,62 @@
 # Native Desktop Validation
 
-Date: October 7, 2026. Current release: `2.2.3`. Historical original candidates:
+Date: October 8, 2026. Current release: `2.2.4`. Historical original candidates:
 `2.2.0-preview.1` and `2.2.0-preview.2`. Baseline results below refer to
 preview.1 unless noted; preview hashes are preserved as historical evidence.
 Host: macOS cross-build; test target: the user's running Windows 11 ARM64
 Parallels VM (10 virtual CPUs, 24 GB RAM). All engine fixtures and the live app
 use disposable lab folders, never the user's production profile.
+
+## v2.2.4 Storage Prechecks
+
+The Windows 11 ARM64 storage/load source run passed **232 logic/real-engine checks**
+(including optional 2,376-removal and 1,000-torrent fixtures).
+New coverage verifies single-file and multi-file category wrapping, explicit
+base-path overrides, global/category opt-out precedence, nameless magnet
+folders, trailing separators, non-flattening completed moves, collision refusal,
+manual pause preservation, repeated-move idempotence and real engine restart.
+Legacy flat torrents are not reorganized when a checkbox changes. Archive
+fixtures prove selected-only extraction in a shared root, full-completion and
+metadata guards, and failed-move reporting. A subsequent mixed-case category
+hash fix passed its regression check and the final default **230-check** Windows
+source suite. The final portable macOS runner passed **133 checks**; it does not
+run Windows engine fixtures.
+
+The WPF harness passed all 13 pages, 10,000-row viewport virtualization and
+native category/default checkbox bindings, including opted-in new categories.
+A local tracker/peer fixture passed actual nameless magnet metadata and verified
+payload transfer inside its stable folder, then restored that data after restart.
+The final packaging run repeats the default source suite, WPF harness and profile
+import safeguards. WebUI storage/queue/DHT round-trip, website downloads and
+JavaScript syntax checks passed. Final package checks are recorded below only
+after execution; source builds alone do not establish package status.
+
+The optional local engine fixture imported 1,000 torrents in 4.46 seconds and
+averaged 4.64 ms per uncached poll, with 73.3 MiB runner private bytes at sampling.
+This is not whole-app peak memory or a production network/disk throughput test.
+
+The prior networking limitations remain: physical x64 hardware, real VPN-provider
+packet capture, production SMB/path mappings and long-duration large-payload
+load are not certified by these disposable local fixtures.
+
+### Final v2.2.4 Package Checks
+
+Both exact x64 and ARM64 ZIP payloads passed isolated API startup, category-folder
+intake without a trailing backslash, captured-path/settings restart, category
+policy changes without reorganizing existing files, mixed-case category
+reassignment, missing-VPN DHT denial, live peer limits and persistent deletion.
+Both Setup.exe packages passed complete-payload install, keep-existing profile,
+in-place upgrade, optional previous-profile import with backup, and uninstall
+while retaining metadata. Final packaging repeated the 230-check default engine
+suite, WPF checkbox/virtualization tests and profile-import safeguards.
+
+All four final artifact hashes match
+[SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/SHA256SUMS.txt),
+both ZIP CRCs passed, and the archives include the storage guide, release notes
+and third-party notices. The x64 payload runs under Windows-on-ARM emulation,
+not physical x64 hardware. No production profile/downloads were used and public
+firewall access was not granted. The bundled report records pre-packaging
+checks; this online section adds the subsequent exact-package results.
 
 ## v2.2.3 DHT Prechecks
 

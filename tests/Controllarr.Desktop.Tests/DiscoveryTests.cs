@@ -229,6 +229,30 @@ internal static class DiscoveryTests
         await engine.Shutdown();
         using var restored = new TorrentEngine(download, Path.Combine(root, "download-resume"), FreePort(), settings);
         check(restored.GetTrackers(added)!.Length == 1 && restored.GetStats(added)!.Paused, "merged trackers and pause survive restart");
+        var groupedSettings = new Settings { CreateTorrentSubfolders = true,
+            PeerDiscovery = new() { DhtEnabled = false, LsdEnabled = false },
+            TorrentNetwork = new() { Encryption = "Disable" }, ConnectionLimits = new() { GlobalMaxConnections = 20 } };
+        string groupedDownload = Path.Combine(root, "grouped-download"), groupedResume = Path.Combine(root, "grouped-resume");
+        string groupedPath;
+        using (var grouped = new TorrentEngine(groupedDownload, groupedResume, FreePort(), groupedSettings))
+        {
+            await grouped.ApplyAdvancedSettingsAsync(groupedSettings);
+            string groupedHash = await grouped.AddMagnet(magnet + "&tr=" + Uri.EscapeDataString(tracker.Url));
+            groupedPath = Path.Combine(groupedDownload, StoragePaths.TorrentFolder(null, groupedHash));
+            await WaitAsync(() => grouped.GetStats(groupedHash)?.Progress >= 1, "Grouped magnet did not retrieve the controlled payload");
+            check(StoragePaths.Equal(grouped.GetStats(groupedHash)!.SavePath, groupedPath)
+                && File.ReadAllBytes(Path.Combine(groupedPath, "metadata-fixture.bin")).SequenceEqual(payload)
+                && !File.Exists(Path.Combine(groupedDownload, "metadata-fixture.bin")),
+                "nameless magnet metadata and verified payload download stay inside their captured torrent folder");
+            await grouped.Pause(groupedHash);
+            await grouped.Shutdown();
+        }
+        using (var groupedRestored = new TorrentEngine(groupedDownload, groupedResume, FreePort(), groupedSettings))
+        {
+            check(StoragePaths.Equal(groupedRestored.GetStats(added)!.SavePath, groupedPath) && groupedRestored.GetStats(added)!.Progress == 1,
+                "a completed nameless magnet restores verified data from the same hash folder after restart");
+            await groupedRestored.Shutdown();
+        }
         int attempts = 0;
         bool FailFirst() => Interlocked.Increment(ref attempts) == 1;
         using var first = new LocalTracker(seeder.ListenPort, FailFirst);

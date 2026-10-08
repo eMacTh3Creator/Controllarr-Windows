@@ -28,6 +28,7 @@ if (args.Contains("--discovery-only"))
     Console.WriteLine($"{passed} discovery/network checks passed.");
     return;
 }
+await StorageTests.RunAsync(Check);
 
 var catalog = new TorrentCatalog();
 catalog.Reconcile(new[] { Stats("ABC", category: "Movies"), Stats("def", category: "TV") });

@@ -84,6 +84,18 @@ internal static class Program
             vm.SelectedTab = page; Layout(window);
             Console.WriteLine($"PASS native {page} page loads");
         }
+        vm.AddCategoryCommand.Execute(null);
+        Check(vm.SelectedCategory?.CreateTorrentSubfolder == true, "new native categories start with torrent subfolders enabled");
+        vm.SelectedTab = "Categories"; Layout(window);
+        var categoryFolder = FindCheckbox(window, "Create a subfolder for each new torrent")
+            ?? throw new Exception("Missing native category subfolder checkbox");
+        categoryFolder.SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, false);
+        Check(vm.SelectedCategory!.CreateTorrentSubfolder == false, "category folder checkbox updates its category model");
+        vm.SelectedTab = "Settings"; Layout(window);
+        var defaultFolder = FindCheckbox(window, "Create per-torrent subfolders for uncategorized downloads")
+            ?? throw new Exception("Missing native default subfolder checkbox");
+        defaultFolder.SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, true);
+        Check(vm.Settings.CreateTorrentSubfolders, "uncategorized folder checkbox updates the settings model");
         Console.WriteLine("Windows XAML/selection checks passed. No engine was started and no files were deleted.");
         (window.FindName("TrayIcon") as IDisposable)?.Dispose();
         window.Hide();
@@ -116,5 +128,12 @@ internal static class Program
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
             if (ContainsText(VisualTreeHelper.GetChild(node, i), text)) return true;
         return false;
+    }
+    private static CheckBox? FindCheckbox(DependencyObject node, string text)
+    {
+        if (node is CheckBox checkbox && Equals(checkbox.Content, text)) return checkbox;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+            if (FindCheckbox(VisualTreeHelper.GetChild(node, i), text) is { } found) return found;
+        return null;
     }
 }

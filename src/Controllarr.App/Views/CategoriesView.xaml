@@ -84,6 +84,11 @@
                                     Command="{Binding DataContext.BrowseCategoryCompletePathCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"/>
                         </Grid>
 
+                        <CheckBox Content="Create a subfolder for each new torrent"
+                                  IsChecked="{Binding CreateTorrentSubfolder}" Margin="0,0,0,6"/>
+                        <TextBlock Text="No trailing backslash is needed. New torrents use a name + short hash folder, kept when moved to Complete Path. Existing files are not reorganized."
+                                   TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,0,0,16"/>
+
                         <!-- Extract Archives -->
                         <CheckBox Content="Extract archives after download"
                                   IsChecked="{Binding ExtractArchives}"

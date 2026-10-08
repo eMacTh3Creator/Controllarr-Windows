@@ -67,6 +67,11 @@
                                         Command="{Binding BrowseSavePathCommand}"/>
                             </Grid>
 
+                            <CheckBox Content="Create per-torrent subfolders for uncategorized downloads"
+                                      IsChecked="{Binding Settings.CreateTorrentSubfolders}" Margin="0,12,0,6"/>
+                            <TextBlock Text="Categories have their own subfolder checkbox. No trailing backslash is needed. Changes apply to new torrents only."
+                                       TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
+
                             <TextBlock Text="Listen Port Range" Style="{StaticResource SecondaryText}" Margin="0,16,0,4"/>
                             <StackPanel Orientation="Horizontal">
                                 <TextBox Text="{Binding Settings.ListenPortRangeStart, UpdateSourceTrigger=PropertyChanged}"

@@ -17,6 +17,7 @@ public sealed record TorrentOptions
     public int? MaximumConnections { get; init; }
     public int? UploadSlots { get; init; }
     public bool Sequential { get; init; }
+    public string? StorageSubfolder { get; init; }
 }
 
 public sealed partial class TorrentEngine

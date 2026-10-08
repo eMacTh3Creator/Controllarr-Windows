@@ -51,13 +51,24 @@ try {
     Write-Output 'PASS enabled DHT stays fail-closed with missing VPN and exposes runtime/adapter diagnostics'
     Invoke-WebRequest "$base/" -WebSession $session -UseBasicParsing | Out-Null
     Write-Output 'PASS LAN API/WebUI remain responsive while torrent networking is blocked'
+    $categoryPath = Join-Path $downloads 'category'
+    $category = @{ name='storage-fixture'; save_path=$categoryPath; complete_path=(Join-Path $downloads 'completed'); create_torrent_subfolder=$true }
+    Invoke-WebRequest "$base/api/controllarr/categories" -Method Post -Body ($category | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -UseBasicParsing | Out-Null
+    $savedCategory = $null
+    foreach ($item in (GetJson '/api/controllarr/categories')) {
+        if ($item.name -eq 'storage-fixture') { $savedCategory = $item }
+    }
+    if (!$savedCategory.create_torrent_subfolder) { throw 'Category subfolder option did not save.' }
     $hash = '0123456789012345678901234567890123456789'
-    Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$hash" } -WebSession $session -UseBasicParsing | Out-Null
+    Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$hash&dn=Storage%20Fixture"; category='storage-fixture' } -WebSession $session -UseBasicParsing | Out-Null
     Invoke-WebRequest "$base/api/v2/torrents/resume" -Method Post -Body @{ hashes=$hash } -WebSession $session -UseBasicParsing | Out-Null
     Invoke-WebRequest "$base/api/v2/torrents/setForceStart" -Method Post -Body @{ hashes=$hash; value='true' } -WebSession $session -UseBasicParsing | Out-Null
     Start-Sleep -Seconds 3
     $rows = @(TorrentRows)
     if ($rows.Count -ne 1 -or $rows[0].state -notlike 'queued*') { throw 'API add/resume bypassed the torrent guard.' }
+    $expectedPath = Join-Path $categoryPath 'Storage Fixture [012345678901]'
+    if ($rows[0].save_path -ne $expectedPath -or $rows[0].content_path -ne $expectedPath) { throw 'API intake did not use the category subfolder without a trailing slash.' }
+    Write-Output 'PASS category subfolder settings route API magnets into their own folder before metadata'
     Write-Output 'PASS qBittorrent add/resume/force-start cannot bypass the VPN guard'
     if ($rows[0].priority -ne 1 -or $rows[0].status_reason -notlike '*VPN*') { throw 'Queue rank or VPN waiting diagnosis missing from API' }
     $controls = @{ MaximumConnections=12; UploadSlots=3; Sequential=$true } | ConvertTo-Json
@@ -67,6 +78,7 @@ try {
     $settings = GetJson '/api/controllarr/settings'
     if ($settings.torrent_network.ProxyPassword -ne 'fixture-secret') { throw 'DPAPI secret did not load.' }
     $settings.vpn_enabled = $false
+    $settings.create_torrent_subfolders = $true
     $settings.peer_discovery.dht_enabled = $false
     $settings.connection_limits.global_max_connections = 75
     $settings.connection_limits.download_reserve_percent = 50
@@ -88,9 +100,17 @@ try {
     $restored = GetJson "/api/controllarr/torrents/$hash/options"
     if (!$restored.Sequential -or $restored.UploadSlots -ne 3) { throw 'Advanced controls did not survive restart.' }
     if ((GetJson '/api/controllarr/settings').torrent_network.ProxyPassword -ne 'fixture-secret') { throw 'Encrypted proxy secret did not survive restart.' }
+    if (!(GetJson '/api/controllarr/settings').create_torrent_subfolders -or @(TorrentRows)[0].save_path -ne $expectedPath) { throw 'Storage layout settings or captured paths changed across restart.' }
+    $category.create_torrent_subfolder = $false
+    Invoke-WebRequest "$base/api/controllarr/categories" -Method Post -Body ($category | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -UseBasicParsing | Out-Null
+    if (@(TorrentRows)[0].save_path -ne $expectedPath) { throw 'Disabling category subfolders moved an existing torrent.' }
+    Write-Output 'PASS global/category layout settings and captured torrent paths survive restart without reorganizing existing files'
     Write-Output 'PASS advanced controls and encrypted proxy secret survive process restart'
     $otherHash = 'b' * 40
     Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$otherHash" } -WebSession $session -UseBasicParsing | Out-Null
+    Invoke-WebRequest "$base/api/v2/torrents/setCategory" -Method Post -Body @{ hashes=$otherHash; category='storage-fixture' } -WebSession $session -UseBasicParsing | Out-Null
+    $assigned = @(TorrentRows) | Where-Object hash -eq $otherHash
+    if ($assigned.category -ne 'storage-fixture') { throw 'API category reassignment was not reflected in the live engine.' }
     Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes="$hash|$($hash.ToUpperInvariant())"; deleteFiles='false' } -WebSession $session -UseBasicParsing | Out-Null
     $remaining = @(TorrentRows)
     if ($remaining.Count -ne 1 -or $remaining[0].hash -ne $otherHash -or $remaining[0].priority -ne 1) { throw 'Batch API deletion did not preserve and compact the unselected torrent' }

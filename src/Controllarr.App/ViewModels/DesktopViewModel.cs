@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Controllarr.Core.Desktop;
 using Controllarr.Core.Engine;
+using Controllarr.Core.Persistence;
 using Controllarr.Core.Services;
 using Controllarr.App.Views;
 using Application = System.Windows.Application;
@@ -180,10 +181,16 @@ public partial class DesktopViewModel : ObservableObject
         var selected = _selectedRows.ToArray();
         var category = DesktopDialogs.ChooseCategory(CategoryNames);
         if (category == null) return;
-        await RunBatchAsync("Assign category", selected, hash =>
+        var policy = _runtime.Settings.CategoryChangeMove;
+        string? destination = _runtime.Categories.FirstOrDefault(c => c.Name == category)?.SavePath;
+        bool move = !string.IsNullOrWhiteSpace(destination) && (policy == CategoryChangeMove.Always ||
+            (policy == CategoryChangeMove.Ask && MessageBox.Show(Application.Current.MainWindow,
+                $"Move {selected.Length:N0} torrents to the category save folder? Existing files will not be overwritten.",
+                "Move category storage", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes));
+        await RunBatchAsync("Assign category", selected, async hash =>
         {
             _runtime.DesktopEngine!.SetCategory(category, hash);
-            return Task.FromResult(true);
+            return !move || await _runtime.DesktopEngine.Move(hash, destination!);
         });
     }
 
@@ -194,7 +201,7 @@ public partial class DesktopViewModel : ObservableObject
         using var picker = new System.Windows.Forms.FolderBrowserDialog { Description = "Move selected torrent files to this folder", UseDescriptionForTitle = true };
         if (picker.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
         if (MessageBox.Show(Application.Current.MainWindow,
-                $"Move files for {selected.Length:N0} torrents to:\n{picker.SelectedPath}\n\nExisting destination files may be replaced. This can take time.",
+                $"Move files for {selected.Length:N0} torrents to:\n{picker.SelectedPath}\n\nTorrent subfolders are preserved. Existing destination files are not overwritten. This can take time.",
                 "Move torrent storage", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
         await RunBatchAsync("Move storage", selected, hash => _runtime.DesktopEngine!.Move(hash, picker.SelectedPath));
     }

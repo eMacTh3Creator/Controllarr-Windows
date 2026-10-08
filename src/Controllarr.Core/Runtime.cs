@@ -109,6 +109,7 @@ namespace Controllarr.Core
 
             // ── 4. Torrent engine ──────────────────────────────────
             Engine = new TorrentEngine(savePath, resumeDir, listenPort, settings);
+            Engine.CategoryLookup = Store.GetCategory;
             Engine.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
             Engine.ConfigureQueue(settings.TorrentQueueing);
             Engine.SetRateLimits(settings.GlobalDownloadKBps, settings.GlobalUploadKBps);
@@ -428,9 +429,9 @@ namespace Controllarr.Core
                         ? (long)(DateTime.UtcNow - t.AddedDate).TotalSeconds
                         : 0,
                     NumPeers = t.NumPeers,
-                    HasMetadata = t.State != TorrentState.DownloadingMetadata,
+                    HasMetadata = t.HasMetadata,
                     Category = t.Category,
-                    ContentPath = t.SavePath,
+                    ContentPath = t.ContentPath,
                     SavePath = t.SavePath,
                     IsMovingStorage = false,
                     DownloadedBytes = t.TotalDownload,
@@ -495,9 +496,9 @@ namespace Controllarr.Core
                         Progress = t.Progress,
                         Ratio = t.Ratio,
                         NumPeers = t.NumPeers,
-                        HasMetadata = t.State != TorrentState.DownloadingMetadata,
+                        HasMetadata = t.HasMetadata,
                         Category = t.Category,
-                        ContentPath = t.SavePath,
+                        ContentPath = t.ContentPath,
                         SavePath = t.SavePath,
                         DownloadedBytes = t.TotalDownload,
                         UploadedBytes = t.TotalUpload,
@@ -529,8 +530,13 @@ namespace Controllarr.Core
             public void RemoveTorrent(string infoHash, bool deleteFiles) =>
                 _inner.Remove(infoHash, deleteFiles).GetAwaiter().GetResult();
 
-            public void MoveStorage(string infoHash, string destinationPath) =>
-                _inner.Move(infoHash, destinationPath).GetAwaiter().GetResult();
+            public void MoveStorage(string infoHash, string destinationPath)
+            {
+                if (!_inner.Move(infoHash, destinationPath).GetAwaiter().GetResult())
+                    throw new IOException("Storage move rejected or failed; see the Storage log.");
+            }
+
+            public IReadOnlyList<string>? GetContentFiles(string infoHash) => _inner.GetContentFilePaths(infoHash);
 
             public void SetRateLimits(int downloadKBps, int uploadKBps) =>
                 _inner.SetRateLimits(

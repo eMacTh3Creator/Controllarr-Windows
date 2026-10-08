@@ -5,6 +5,16 @@ Library size is not the same as simultaneously active downloads: disk speed,
 peer churn, hashing and tracker behavior still determine achievable throughput.
 Do not treat a synthetic row test as a guarantee of production stability.
 
+## v2.2.4 Storage Safety
+
+Subfolder routing is resolved once at intake and captured in per-torrent state.
+Ordinary two-second stats reads do not recursively enumerate storage directories.
+Completed extraction uses that torrent's selected file inventory rather than
+scanning a potentially huge shared category tree. Moves remain serial and stop
+the torrent first; cross-disk moves still depend on disk throughput. Synchronous
+post-processing remains an outstanding service-I/O optimization, not solved by
+this layout update. See [STORAGE.md](STORAGE.md).
+
 ## v2.2.3 Discovery Repairs
 
 v2.2.3 adds four-worker, bounded/deduplicated peer rediscovery with

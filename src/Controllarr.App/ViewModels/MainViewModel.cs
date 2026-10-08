@@ -856,7 +856,8 @@ namespace Controllarr.App.ViewModels
             var cat = new Category
             {
                 Name = $"Category {Categories.Count + 1}",
-                SavePath = Settings.DefaultSavePath
+                SavePath = Settings.DefaultSavePath,
+                CreateTorrentSubfolder = true
             };
             Categories.Add(cat);
             SelectedCategory = cat;
@@ -998,6 +999,7 @@ namespace Controllarr.App.ViewModels
                     initialSettings.DefaultSavePath,
                     _store.ResumeDirectory,
                     port, initialSettings));
+                _engine.CategoryLookup = _store.GetCategory;
                 await _engine.ApplyAdvancedSettingsAsync(initialSettings);
 
                 // Apply connection-limit / peer-discovery tuning.
@@ -1305,10 +1307,10 @@ namespace Controllarr.App.ViewModels
                 NumPeers = s.NumPeers,
                 Category = s.Category,
                 SavePath = s.SavePath,
-                ContentPath = s.SavePath,
+                ContentPath = s.ContentPath,
                 DownloadRateBytes = (int)s.DownloadRate,
                 UploadRateBytes = (int)s.UploadRate,
-                HasMetadata = s.State != TorrentState.DownloadingMetadata,
+                HasMetadata = s.HasMetadata,
                 DownloadedBytes = s.TotalDownload,
                 UploadedBytes = s.TotalUpload,
                 TotalBytes = s.TotalWanted,
@@ -1457,10 +1459,10 @@ namespace Controllarr.App.ViewModels
                     NumPeers = s.NumPeers,
                     Category = s.Category,
                     SavePath = s.SavePath,
-                    ContentPath = s.SavePath,
+                    ContentPath = s.ContentPath,
                     DownloadRateBytes = (int)s.DownloadRate,
                     UploadRateBytes = (int)s.UploadRate,
-                    HasMetadata = s.State != TorrentState.DownloadingMetadata,
+                    HasMetadata = s.HasMetadata,
                 })
                 .ToList();
         }
@@ -1474,8 +1476,13 @@ namespace Controllarr.App.ViewModels
         public void RemoveTorrent(string infoHash, bool deleteFiles) =>
             _engine.Remove(infoHash, deleteFiles).GetAwaiter().GetResult();
 
-        public void MoveStorage(string infoHash, string destinationPath) =>
-            _engine.Move(infoHash, destinationPath).GetAwaiter().GetResult();
+        public void MoveStorage(string infoHash, string destinationPath)
+        {
+            if (!_engine.Move(infoHash, destinationPath).GetAwaiter().GetResult())
+                throw new IOException("Storage move rejected or failed; see the Storage log.");
+        }
+
+        public IReadOnlyList<string>? GetContentFiles(string infoHash) => _engine.GetContentFilePaths(infoHash);
 
         public void SetRateLimits(int downloadKBps, int uploadKBps) =>
             _engine.SetRateLimits(downloadKBps > 0 ? downloadKBps : null, uploadKBps > 0 ? uploadKBps : null);

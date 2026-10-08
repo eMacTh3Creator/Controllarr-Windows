@@ -263,6 +263,9 @@ namespace Controllarr.Core.Persistence
         [JsonPropertyName("complete_path")]
         public string? CompletePath { get; set; }
 
+        [JsonPropertyName("create_torrent_subfolder")]
+        public bool CreateTorrentSubfolder { get; set; }
+
         [JsonPropertyName("extract_archives")]
         public bool ExtractArchives { get; set; } = false;
 
@@ -432,6 +435,9 @@ namespace Controllarr.Core.Persistence
             "Downloads",
             "Controllarr");
 
+        [JsonPropertyName("create_torrent_subfolders")]
+        public bool CreateTorrentSubfolders { get; set; }
+
         [JsonPropertyName("web_ui_host")]
         public string WebUIHost { get; set; } = "127.0.0.1";
 
@@ -577,7 +583,19 @@ namespace Controllarr.Core.Persistence
         public List<Category> Categories { get; set; } = new();
 
         [JsonPropertyName("category_by_hash")]
-        public Dictionary<string, string> CategoryByHash { get; set; } = new();
+        public Dictionary<string, string> CategoryByHash
+        {
+            get => _categoryByHash;
+            set
+            {
+                // Preserve hash identity through JSON clones/restores, including
+                // legacy profiles containing both upper- and lowercase keys.
+                _categoryByHash = new(StringComparer.OrdinalIgnoreCase);
+                if (value != null)
+                    foreach (var pair in value) _categoryByHash[pair.Key] = pair.Value;
+            }
+        }
+        private Dictionary<string, string> _categoryByHash = new(StringComparer.OrdinalIgnoreCase);
 
         [JsonPropertyName("last_known_good_port")]
         public ushort? LastKnownGoodPort { get; set; } = null;

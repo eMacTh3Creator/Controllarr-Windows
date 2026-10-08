@@ -9,6 +9,7 @@ This folder holds the higher-level product and planning docs that sit alongside 
 - [DESKTOP.md](DESKTOP.md) — native desktop controls, bulk selection/deletion, taskbar behavior, isolated testing and known limits
 - [NATIVE_DESKTOP_VALIDATION.md](NATIVE_DESKTOP_VALIDATION.md) - VM test results, performance measurements and remaining validation limits
 - [INSTALL.md](INSTALL.md) - x64/ARM64 installers, profile preservation/import, portable ZIPs and package builds
+- [STORAGE.md](STORAGE.md) - per-torrent category folders, trailing separators, completed moves, archive scope and existing-data safety
 - [NETWORKING.md](NETWORKING.md) - enforced adapter binding, LAN separation, SOCKS5/DPAPI, DNS, blocklists and advanced-client limitations
 - [OPERATIONS.md](OPERATIONS.md) — headless/always-on usage, backup/export/restore, recovery rules, post-processing retries, disk-space operations, VPN diagnostics, and the on-disk log
 - [PERFORMANCE.md](PERFORMANCE.md) — large-library scaling notes, the 2s polling model, and tuning guidance for high torrent counts with MonoTorrent
@@ -18,9 +19,9 @@ This folder holds the higher-level product and planning docs that sit alongside 
 ## Releases
 
 - [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
-- [Release Notes](../RELEASE_NOTES_v2.2.3.md) - VPN-bound DHT, expanded tunnel detection and discovery/intake repairs
+- [Release Notes](../RELEASE_NOTES_v2.2.4.md) - clean torrent folders, safe moves, scoped extraction and storage persistence
 
-The current Windows release is **v2.2.3**, adding tunnel-bound DHT/DNS, PIA/NordVPN and generic tunnel recognition, tracker failover, metadata recovery and more efficient intake. Both CPU builds retain native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
+The current Windows release is **v2.2.4**, adding per-category/uncategorized subfolder checkboxes, non-flattening completed moves, collision protection, scoped archive extraction and captured-path persistence. Trailing separators are unnecessary; existing files are not automatically reorganized. Both CPU builds retain bound DHT, discovery repairs, native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

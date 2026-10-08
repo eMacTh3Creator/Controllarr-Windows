@@ -3,9 +3,10 @@
 The redesigned desktop is WPF, not a WebView2 portal. It talks directly to
 MonoTorrent and the runtime services. The browser WebUI and qBittorrent API
 remain separate remote-management interfaces; no WebUI login is needed locally.
-The current v2.2.3 release adds bound DHT/discovery reliability to repaired queue ranks, download peer headroom and
-live transfer diagnosis to the full x64/experimental ARM64 installers,
-profile preservation/import and pause-first bulk removal. See [INSTALL.md](INSTALL.md).
+The current v2.2.4 release adds per-torrent storage folders and safe completed
+moves to bound DHT/discovery reliability, queue/peer diagnosis and pause-first
+bulk removal. Full x64/experimental ARM64 installers preserve/import profiles.
+See [INSTALL.md](INSTALL.md) and [STORAGE.md](STORAGE.md).
 
 ## Transfer Workspace
 
@@ -22,8 +23,9 @@ selected row preserves the full selection. Polls do not replace row identity.
 
 The toolbar, Transfers menu and context menu act on the selected rows. Pause,
 resume, reannounce, verify files, assign category and move storage support
-multiple torrents. Assigning a category changes the label; moving files is an
-explicit separate operation. Verify files runs serially and leaves torrents
+multiple torrents. Assigning a category follows the category-change move policy:
+Always moves, Ask prompts, Never changes only the label. Move storage is also
+available separately and never overwrites existing target files. Verify files runs serially and leaves torrents
 paused. Explicitly paused torrents stay paused after restart. Open folders is capped at ten distinct folders to avoid flooding
 Explorer. Copy magnets supports v1 and v2 hashes.
 
@@ -75,6 +77,13 @@ Category edits validate unique names, absolute paths and non-negative limits.
 Saving a renamed category updates its assigned torrent labels; removing a
 category and saving clears those labels without deleting files. Blocked-file
 extension changes take effect on subsequent runtime polls.
+
+Enable **Create a subfolder for each new torrent** in each existing category
+and Save Category to keep future single-file and multi-file downloads together.
+New categories start opted in; upgrades do not move existing files. A trailing
+backslash is unnecessary. Completed moves keep the outer folder, and repeated
+moves do not nest it. Settings > General supplies a separate uncategorized
+default. See [STORAGE.md](STORAGE.md) for magnet naming and existing-data limits.
 
 ## Queue, Speeds and Automation
 

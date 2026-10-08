@@ -1,6 +1,6 @@
 # Controllarr for Windows — Roadmap (Historical Product Direction)
 
-> **Status note.** Historical product-direction context, not a numbered release commitment. Windows v2.2.3 adds VPN-bound DHT/DNS, expanded tunnel detection and metadata/tracker discovery repairs to the native desktop, live queues, peer headroom and profile-preserving installers. Built-in automatic installation is still planned; ARM64 remains experimental. See [DESKTOP.md](DESKTOP.md), [INSTALL.md](INSTALL.md) and [NETWORKING.md](NETWORKING.md) for current capabilities and limits. Engine behavior is not assumed to match macOS.
+> **Status note.** Historical product-direction context, not a numbered release commitment. Windows v2.2.4 adds per-torrent subfolder controls, safe completed moves and scoped archive extraction to VPN-bound DHT/discovery repairs, the native desktop, live queues and profile-preserving installers. Built-in automatic installation is still planned; ARM64 remains experimental. See [STORAGE.md](STORAGE.md), [DESKTOP.md](DESKTOP.md), [INSTALL.md](INSTALL.md) and [NETWORKING.md](NETWORKING.md) for current capabilities and limits. Engine behavior is not assumed to match macOS.
 
 ## Vision
 

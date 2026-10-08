@@ -18,7 +18,7 @@
 
 Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Current release:** [v2.2.3](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.3) adds VPN-bound DHT, expanded automatic tunnel recognition and tracker/metadata stall repairs. DHT bootstrap DNS and UDP use the enforced adapter; private torrents exclude DHT, and SOCKS5 still disables it. It retains download peer headroom, live queue diagnosis and profile-preserving x64/ARM64 installers. The desktop is native WPF, not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
+**Current release:** [v2.2.4](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.4) adds per-torrent subfolder checkboxes, preserves multi-file folders during completed/manual moves, rejects destination collisions and scopes archive extraction to the torrent's own files. **A trailing backslash is not required.** Existing profiles and payload paths are retained; enable the checkbox in each existing category for future downloads. It retains VPN-bound DHT, discovery repairs, live queues and profile-preserving x64/ARM64 installers. The desktop is native WPF, not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [storage guide](docs/STORAGE.md), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
 
 **Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
 
@@ -28,10 +28,10 @@ Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https:
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
-| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
-| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
+| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
+| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
-Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
+Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -67,6 +67,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Persistent crash-surviving log** — the runtime log is mirrored to `%AppData%\Controllarr\logs\controllarr.log`, fsync'd on warnings/errors and every few lines (~5 MB rotation keeping one `.1` backup) so it survives an app crash or reboot; a **Reveal Log File** action opens it in Explorer
 - **GitHub-release update check** — a "Check for Updates" action plus a settings toggle query the GitHub Releases API and open the latest release page (replaces the macOS Sparkle updater)
 - **Category-based save paths** and post-complete move rules for Plex library handoff
+- **Clean torrent folders** - per-category checkbox plus an uncategorized default, name/hash folders for single-file and multi-file intake, stable magnet paths, non-overwriting moves and restart persistence; existing files are not silently reorganized
 - **Archive extractor** (.rar / .zip / .7z) via SharpCompress
 - **Dangerous-file filter** per category with blocked extension lists
 - **Seeding policy** — per-category or global max ratio / max seed time with hit-and-run protection
@@ -96,7 +97,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 |-----|-------------|
 | **Home** | Optional dashboard with session metrics, status and most-active transfers |
 | **Transfers** | Default native workspace with combined filters, multi-selection, bulk context-menu actions and Files/Trackers/Peers inspector |
-| **Categories** | Category editor — save path, complete path, archive extraction, blocked extensions, ratio/time overrides |
+| **Categories** | Category editor - save/complete paths, per-torrent subfolders, archive extraction, blocked extensions, ratio/time overrides |
 | **Settings** | Full settings form — WebUI, port range, seeding policy, health, VPN, disk space, *arr, bandwidth, recovery rules, backup/restore |
 | **Health** | Stall detection dashboard — reason classification, duration tracking, clear/recover actions |
 | **Recovery** | Recovery action log — trigger, action, source (auto/manual), success/failure |
@@ -375,6 +376,7 @@ Select your actual VPN tunnel, not Ethernet/Wi-Fi. Automatic detection fails clo
 |----------|-------------|
 | [docs/README.md](docs/README.md) | Documentation index and overview |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Day-to-day operations, deployment, and troubleshooting guide |
+| [docs/STORAGE.md](docs/STORAGE.md) | Category folders, trailing separators, safe moves, existing downloads and archive scope |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Performance tuning and large-library guidance |
 | [docs/STALL_AUDIT.md](docs/STALL_AUDIT.md) | Metadata/tracker stall findings, source repairs and remaining work |
 | [docs/V1_5_ROADMAP.md](docs/V1_5_ROADMAP.md) | Roadmap and feature planning |

@@ -82,7 +82,7 @@ namespace Controllarr.Core.Services
                 foreach (var t in torrents)
                 {
                     // Only process torrents that are finished downloading
-                    if (t.Progress < 0.999f)
+                    if (!t.HasMetadata || t.Progress < 1f)
                         continue;
 
                     if (!_records.TryGetValue(t.InfoHash, out var record))
@@ -199,7 +199,7 @@ namespace Controllarr.Core.Services
             else
             {
                 // No move needed – go straight to extraction check
-                TryExtractOrComplete(record, torrent, category);
+                TryExtractOrComplete(record, torrent, category, engine);
             }
         }
 
@@ -213,10 +213,10 @@ namespace Controllarr.Core.Services
                 return; // still in progress
 
             var category = FindCategory(record.Category, categories);
-            TryExtractOrComplete(record, torrent, category);
+            TryExtractOrComplete(record, torrent, category, engine);
         }
 
-        private void TryExtractOrComplete(PostRecord record, TorrentView torrent, Category? category)
+        private void TryExtractOrComplete(PostRecord record, TorrentView torrent, Category? category, ITorrentEngine engine)
         {
             bool shouldExtract = category?.ExtractArchives ?? false;
 
@@ -228,7 +228,7 @@ namespace Controllarr.Core.Services
 
                 try
                 {
-                    int extracted = ExtractArchives(torrent.ContentPath);
+                    int extracted = ExtractArchives(torrent.ContentPath, engine.GetContentFiles(torrent.InfoHash));
                     record.Stage = PostStage.Done;
                     record.Message = extracted > 0
                         ? $"Extracted {extracted} archive(s)"
@@ -258,7 +258,7 @@ namespace Controllarr.Core.Services
 
         // ── Archive extraction ──────────────────────────────────────
 
-        private int ExtractArchives(string contentPath)
+        private int ExtractArchives(string contentPath, IReadOnlyList<string>? contentFiles)
         {
             if (string.IsNullOrWhiteSpace(contentPath))
                 return 0;
@@ -266,7 +266,12 @@ namespace Controllarr.Core.Services
             // contentPath may be a single file or a directory
             var archiveFiles = new List<string>();
 
-            if (File.Exists(contentPath))
+            if (contentFiles != null)
+            {
+                // Shared category roots must never cause extraction of another torrent's archives.
+                archiveFiles.AddRange(contentFiles.Where(f => File.Exists(f) && IsArchiveFile(f)));
+            }
+            else if (File.Exists(contentPath))
             {
                 if (IsArchiveFile(contentPath))
                     archiveFiles.Add(contentPath);

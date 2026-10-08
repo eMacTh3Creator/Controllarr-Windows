@@ -39,6 +39,8 @@ public sealed class TorrentStats
     public string Name { get; init; } = string.Empty;
     public string InfoHash { get; init; } = string.Empty;
     public string SavePath { get; init; } = string.Empty;
+    public string ContentPath { get; init; } = string.Empty;
+    public bool HasMetadata { get; init; }
     public float Progress { get; init; }
     public TorrentState State { get; init; }
     public bool Paused { get; init; }
@@ -169,6 +171,7 @@ public sealed partial class TorrentEngine : IDisposable
     public TorrentEngine(string defaultSavePath, string resumeDataDirectory, ushort listenPort, Settings? initialSettings = null)
     {
         _defaultSavePath = defaultSavePath ?? throw new ArgumentNullException(nameof(defaultSavePath));
+        _createTorrentSubfolders = initialSettings?.CreateTorrentSubfolders ?? false;
         _resumeDataDirectory = resumeDataDirectory ?? throw new ArgumentNullException(nameof(resumeDataDirectory));
         _listenPort = listenPort;
         NetworkPolicy = new TorrentNetworkPolicy(initialSettings ?? new Settings());
@@ -327,9 +330,11 @@ public sealed partial class TorrentEngine : IDisposable
                 if (persist) await SaveEngineStateAsync(checkpointResume: false);
                 return hash;
             }
-            string save = ResolveSavePath(savePath);
-            var manager = magnet != null ? await _engine.AddAsync(magnet, save) : await _engine.AddAsync(torrent!, save);
+            string save = ResolveIntakePath(savePath, category, torrent?.Name ?? magnet?.Name, hash, out string? folder);
+            var layout = new TorrentSettingsBuilder { CreateContainingDirectory = folder == null }.ToSettings();
+            var manager = magnet != null ? await _engine.AddAsync(magnet, save, layout) : await _engine.AddAsync(torrent!, save, layout);
             RegisterManager(hash, manager);
+            _options[hash] = OptionsFor(hash) with { StorageSubfolder = folder };
             if (!string.IsNullOrEmpty(category)) _categories[hash] = category;
             _addedDates[hash] = DateTime.UtcNow;
             await StartManagedAsync(manager);
@@ -425,17 +430,38 @@ public sealed partial class TorrentEngine : IDisposable
         await _queueGate.WaitAsync();
         try
         {
+            if (!mgr.HasMetadata || _removalPending.ContainsKey(infoHash)) return false;
+            newPath = StoragePaths.Normalize(newPath);
+            if (StoragePaths.Equal(newPath, mgr.SavePath) || StoragePaths.Equal(newPath, mgr.ContainingDirectory)) return true;
+            newPath = ResolveMovePath(mgr, newPath);
+            if (StoragePaths.Equal(newPath, mgr.ContainingDirectory)) return true;
+            foreach (var file in mgr.Files)
+            {
+                string target = Path.Combine(newPath, file.Path);
+                if (File.Exists(target) && !StoragePaths.Equal(target, file.DownloadCompleteFullPath))
+                    throw new IOException($"Destination already contains {file.Path}; no files were replaced.");
+                string suffix = file.DownloadIncompleteFullPath[file.DownloadCompleteFullPath.Length..];
+                if (suffix.Length > 0 && File.Exists(target + suffix) && !StoragePaths.Equal(target + suffix, file.DownloadIncompleteFullPath))
+                    throw new IOException($"Destination already contains an incomplete {file.Path}; no files were replaced.");
+            }
             Directory.CreateDirectory(newPath);
             bool resume = mgr.State is not MonoTorrent.Client.TorrentState.Paused and not MonoTorrent.Client.TorrentState.Stopped;
             await StopManagerAsync(mgr);
-            await mgr.MoveFilesAsync(newPath, true);
-            if (mgr.State == MonoTorrent.Client.TorrentState.Error) return false;
+            await mgr.MoveFilesAsync(newPath, false);
+            if (mgr.State == MonoTorrent.Client.TorrentState.Error)
+                throw new IOException(mgr.Error?.Exception.Message ?? "The torrent engine reported a storage error.");
+            await mgr.UpdateSettingsAsync(new TorrentSettingsBuilder(mgr.Settings) { CreateContainingDirectory = false }.ToSettings());
+            if (mgr.Torrent!.Files.Count > 1 || OptionsFor(infoHash).StorageSubfolder != null)
+                _options[infoHash] = OptionsFor(infoHash) with { StorageSubfolder = Path.GetFileName(newPath) };
             if (resume) await StartManagedAsync(mgr);
             InvalidateStats();
+            await SaveEngineStateAsync(checkpointResume: false);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Services.Logger.Instance.Warn("Storage", $"Move failed for {infoHash}: {ex.Message}");
+            InvalidateStats();
             return false;
         }
         finally { _queueGate.Release(); }
@@ -972,7 +998,7 @@ public sealed partial class TorrentEngine : IDisposable
 
     private string ResolveSavePath(string? savePath)
     {
-        var path = string.IsNullOrWhiteSpace(savePath) ? _defaultSavePath : savePath;
+        var path = StoragePaths.Normalize(string.IsNullOrWhiteSpace(savePath) ? _defaultSavePath : savePath);
         Directory.CreateDirectory(path);
         return path;
     }
@@ -1070,6 +1096,8 @@ public sealed partial class TorrentEngine : IDisposable
             Name = mgr.Name ?? hash,
             InfoHash = hash,
             SavePath = mgr.SavePath,
+            ContentPath = !mgr.HasMetadata ? mgr.SavePath : mgr.Files.Count == 1 ? mgr.Files[0].DownloadCompleteFullPath : mgr.ContainingDirectory,
+            HasMetadata = mgr.HasMetadata,
             Progress = (float)(mgr.PartialProgress / 100.0),
             State = state,
             Paused = paused,

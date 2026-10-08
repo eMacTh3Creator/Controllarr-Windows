@@ -29,6 +29,9 @@ namespace Controllarr.Core.Engine
         /// <summary>Move the on-disk storage of a torrent to a new path.</summary>
         void MoveStorage(string infoHash, string destinationPath);
 
+        /// <summary>Selected payload files only; null for backends without a file inventory.</summary>
+        IReadOnlyList<string>? GetContentFiles(string infoHash) => null;
+
         /// <summary>
         /// Set global download/upload rate limits in KBps.
         /// A value of 0 means unlimited.

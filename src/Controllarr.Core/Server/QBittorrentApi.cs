@@ -53,6 +53,7 @@ namespace Controllarr.Core.Server
             ConcurrentDictionary<string, DateTime> sessions,
             Func<string, string, bool> validateCredentials)
         {
+            engine.CategoryLookup = store.GetCategory;
             // ─── qBittorrent v2 Auth ───────────────────────────────
             MapAuth(app, sessions, validateCredentials, logger);
 
@@ -300,6 +301,7 @@ namespace Controllarr.Core.Server
                     ["hash"] = t.InfoHash,
                     ["name"] = t.Name,
                     ["save_path"] = t.SavePath,
+                    ["content_path"] = t.ContentPath,
                     ["total_size"] = t.TotalWanted,
                     ["progress"] = t.Progress,
                     ["dlspeed"] = t.DownloadRate,
@@ -552,7 +554,7 @@ namespace Controllarr.Core.Server
                 if (existing != null)
                     return Results.Conflict();
 
-                store.UpsertCategory(new Category { Name = name, SavePath = savePath });
+                store.UpsertCategory(new Category { Name = name, SavePath = savePath, CreateTorrentSubfolder = true });
                 logger.Info("API", $"Created category: {name}");
                 return Results.Ok();
             });
@@ -598,6 +600,7 @@ namespace Controllarr.Core.Server
 
                 foreach (string hash in hashList)
                 {
+                    engine.SetCategory(string.IsNullOrEmpty(category) ? null : category, hash);
                     if (string.IsNullOrEmpty(category))
                         store.NoteCategoryForHash(hash, null);
                     else
@@ -1101,6 +1104,7 @@ namespace Controllarr.Core.Server
                 ["status_reason"] = t.StatusReason,
                 ["category"] = cat ?? "",
                 ["save_path"] = t.SavePath,
+                ["content_path"] = t.ContentPath,
                 ["added_on"] = new DateTimeOffset(t.AddedDate).ToUnixTimeSeconds(),
                 ["completion_on"] = t.Progress >= 0.999f
                     ? new DateTimeOffset(t.AddedDate).ToUnixTimeSeconds()
@@ -1249,9 +1253,9 @@ namespace Controllarr.Core.Server
                         Progress = t.Progress,
                         Ratio = t.Ratio,
                         NumPeers = t.NumPeers,
-                        HasMetadata = t.State != TorrentState.DownloadingMetadata,
+                        HasMetadata = t.HasMetadata,
                         Category = t.Category,
-                        ContentPath = t.SavePath,
+                        ContentPath = t.ContentPath,
                         SavePath = t.SavePath,
                         DownloadedBytes = t.TotalDownload,
                         UploadedBytes = t.TotalUpload,
@@ -1273,8 +1277,13 @@ namespace Controllarr.Core.Server
             public void RemoveTorrent(string infoHash, bool deleteFiles) =>
                 _inner.Remove(infoHash, deleteFiles).GetAwaiter().GetResult();
 
-            public void MoveStorage(string infoHash, string destinationPath) =>
-                _inner.Move(infoHash, destinationPath).GetAwaiter().GetResult();
+            public void MoveStorage(string infoHash, string destinationPath)
+            {
+                if (!_inner.Move(infoHash, destinationPath).GetAwaiter().GetResult())
+                    throw new IOException("Storage move rejected or failed; see the Storage log.");
+            }
+
+            public IReadOnlyList<string>? GetContentFiles(string infoHash) => _inner.GetContentFilePaths(infoHash);
 
             public void SetRateLimits(int downloadKBps, int uploadKBps) =>
                 _inner.SetRateLimits(

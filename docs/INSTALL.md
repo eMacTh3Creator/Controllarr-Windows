@@ -1,13 +1,18 @@
 # Install Controllarr for Windows
 
-v2.2.3 provides a full per-user installer and optional portable ZIP for each CPU.
+v2.2.4 provides a full per-user installer and optional portable ZIP for each CPU.
+
+After upgrading, enable **Create a subfolder for each new torrent** in your
+existing categories and Save Category if you want clean future download roots.
+The upgrade retains old paths and does not reorganize existing files. A trailing
+backslash is not required. See [STORAGE.md](STORAGE.md).
 Both contain the same native WPF desktop. No separate .NET, Edge or WebView2
 installation is needed. ARM64 remains experimental.
 
 | Installer | Use On |
 |-----------|--------|
-| [Download x64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64-Setup.exe) | Intel/AMD 64-bit Windows 10/11, including an x64 Plexbox |
-| [Download ARM64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
+| [Download x64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-x64-Setup.exe) | Intel/AMD 64-bit Windows 10/11, including an x64 Plexbox |
+| [Download ARM64 Setup.exe](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
 Check Windows Settings > System > About > System type if unsure. ARM64 is not
 the correct build for an Intel/AMD PC. These are not macOS applications.
@@ -75,8 +80,8 @@ run two architectures against the same profile. Custom profiles use
 
 ## Portable Alternative
 
-[x64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64.zip)
-and [ARM64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64.zip)
+[x64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-x64.zip)
+and [ARM64 ZIP](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/Controllarr-2.2.4-win-arm64.zip)
 remain available. Stop the old app, extract every file into a new permanent folder,
 and run `Controllarr.exe` there. Keep its DLLs together; do not run inside the ZIP
 or update only the EXE. Settings remain in AppData.
@@ -85,10 +90,10 @@ or update only the EXE. Settings remain in AppData.
 
 Installers and app binaries are unsigned; SmartScreen may warn of an unknown
 publisher. Download only from the project or your own build and verify
-[SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/SHA256SUMS.txt):
+[SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.4/SHA256SUMS.txt):
 
 ```powershell
-Get-FileHash .\Controllarr-2.2.3-win-x64-Setup.exe -Algorithm SHA256
+Get-FileHash .\Controllarr-2.2.4-win-x64-Setup.exe -Algorithm SHA256
 ```
 
 A checksum detects corruption; it is not a code signature. Do not disable

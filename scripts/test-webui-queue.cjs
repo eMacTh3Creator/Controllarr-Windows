@@ -15,7 +15,7 @@ class Element {
   setAttribute(key, value) { this[key] = value; }
 }
 const context = vm.createContext({ document: { createElement: tag => new Element(tag), createTextNode: text => ({ text }) } });
-for (const name of ['el', 'appendChildren', 'num', 'int', 'clampPort', 'normTorrent', 'normStats', 'normTracker', 'normSettings', 'settingsToPayload']) {
+for (const name of ['el', 'appendChildren', 'num', 'int', 'clampPort', 'normTorrent', 'normStats', 'normTracker', 'normSettings', 'settingsToPayload', 'normCategory', 'categoryToPayload']) {
   const start = source.indexOf(`function ${name}(`);
   const end = source.indexOf('\n}', start) + 2;
   assert.ok(start >= 0 && end > start, `Missing function ${name}`);
@@ -28,6 +28,8 @@ const original = {
   vpn_interface_id: '{saved-adapter}', peer_discovery: { dht_enabled: true, pex_enabled: false, lsd_enabled: false },
 };
 const draft = context.normSettings(original);
+assert.equal(draft.createTorrentSubfolders, false);
+draft.createTorrentSubfolders = true;
 assert.equal(draft.globalMaxConnections, 500);
 draft.globalMaxConnections = 600;
 draft.downloadReservePercent = 0;
@@ -35,6 +37,10 @@ draft.maxActiveSeeds = 2;
 draft.dhtEnabled = false;
 draft.vpnInterfaceId = '{new-adapter}';
 const payload = JSON.parse(JSON.stringify(context.settingsToPayload(draft)));
+assert.equal(payload.create_torrent_subfolders, true);
+assert.equal(context.normCategory({}).createTorrentSubfolder, false);
+assert.equal(context.categoryToPayload(context.normCategory({ name: 'TV', create_torrent_subfolder: true })).create_torrent_subfolder, true);
+assert.equal(context.categoryToPayload(context.normCategory({ name: 'TV', create_torrent_subfolder: false })).create_torrent_subfolder, false);
 assert.deepEqual(payload.connection_limits, { ...original.connection_limits, global_max_connections: 600, download_reserve_percent: 0 });
 assert.deepEqual(payload.torrent_queueing, { ...original.torrent_queueing, max_active_seeds: 2 });
 assert.deepEqual(payload.ui_preferences, original.ui_preferences);
