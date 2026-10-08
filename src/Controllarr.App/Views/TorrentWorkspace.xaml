@@ -51,6 +51,7 @@
                     <Separator/>
                     <MenuItem Header="Assign category..." Command="{Binding AssignCategoryCommand}"/>
                     <MenuItem Header="Move storage..." Command="{Binding MoveSelectedCommand}"/>
+                    <MenuItem Header="Repair import folder layout..." Command="{Binding RepairLayoutSelectedCommand}"/>
                     <MenuItem Header="Open download folder" Command="{Binding OpenFolderCommand}"/>
                     <MenuItem Header="Copy magnet links" Command="{Binding CopyMagnetsCommand}"/>
                     <Separator/>

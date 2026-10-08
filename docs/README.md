@@ -4,6 +4,8 @@ This folder holds the higher-level product and planning docs that sit alongside 
 
 ## Start Here
 
+- [MOBILE.md](MOBILE.md) - iOS preview setup, authenticated remote APIs, discovery and notification limits
+
 - [../README.md](../README.md) — product overview, feature summary, install/run and build-from-source instructions
 - [index.html](index.html) — public GitHub Pages launch page for Controllarr for Windows
 - [DESKTOP.md](DESKTOP.md) — native desktop controls, bulk selection/deletion, taskbar behavior, isolated testing and known limits
@@ -19,9 +21,9 @@ This folder holds the higher-level product and planning docs that sit alongside 
 ## Releases
 
 - [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
-- [Release Notes](../RELEASE_NOTES_v2.2.4.md) - clean torrent folders, safe moves, scoped extraction and storage persistence
+- [Release Notes](../RELEASE_NOTES_v2.3.0.md) - clean torrent folders, safe moves, scoped extraction and storage persistence
 
-The current Windows release is **v2.2.4**, adding per-category/uncategorized subfolder checkboxes, non-flattening completed moves, collision protection, scoped archive extraction and captured-path persistence. Trailing separators are unnecessary; existing files are not automatically reorganized. Both CPU builds retain bound DHT, discovery repairs, native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
+The current Windows release is **v2.3.0**, correcting Sonarr import paths and adding confirmed layout repair, authenticated Remote Protocol 1, bounded events and optional LAN discovery. Existing files are not automatically reorganized. Both CPU builds retain bound DHT, native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. iOS is a source/simulator preview without reliable APNs background push or public Apple distribution. Windows uses MonoTorrent and is not behaviorally identical to the Mac engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

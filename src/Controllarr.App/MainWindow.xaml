@@ -109,6 +109,7 @@
                     <MenuItem Header="Edit trackers..." Command="{Binding Desktop.EditTrackersCommand}"/>
                     <Separator/><MenuItem Header="Assign category..." Command="{Binding Desktop.AssignCategoryCommand}"/>
                     <MenuItem Header="Move storage..." Command="{Binding Desktop.MoveSelectedCommand}"/>
+                    <MenuItem Header="Repair import folder layout..." Command="{Binding Desktop.RepairLayoutSelectedCommand}"/>
                     <MenuItem Header="Open download folders" Command="{Binding Desktop.OpenFolderCommand}"/>
                     <Separator/><MenuItem Header="Pause all torrents" Command="{Binding Desktop.PauseAllCommand}"/>
                     <MenuItem Header="Resume all torrents" Command="{Binding Desktop.ResumeAllCommand}"/>

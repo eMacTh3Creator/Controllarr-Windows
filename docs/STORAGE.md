@@ -1,5 +1,19 @@
 # Torrent Storage and Subfolders
 
+## Sonarr Import Compatibility (v2.3.0)
+
+The API reports the logical download root as `save_path` and the actual payload
+location as `content_path`, including owned multi-file folders. Sonarr rejects
+completed imports when those paths are identical. This reporting correction
+does not relocate properly isolated downloads.
+
+Per-download `contentLayout=Subfolder` overrides a legacy flat category for that
+new add only; `NoSubfolder` opts out and `Original` follows category/global policy.
+For an older flat torrent, select it and use **Repair import folder layout...**
+in the context/Transfers menu, then confirm the on-disk move. Metadata must be
+ready; collisions are rejected and proper folders left alone. Then refresh
+Sonarr's queue. Back up state before a large migration.
+
 Applies to Windows v2.2.4 and later. A trailing `\` does **not** control torrent
 subfolders. `E:\temp\tv-sonarr` and `E:\temp\tv-sonarr\` identify the same base
 folder. Use absolute local or UNC paths accessible to the account running the app.

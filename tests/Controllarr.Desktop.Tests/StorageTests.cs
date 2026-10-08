@@ -105,6 +105,13 @@ internal static class StorageTests
         string multi = await live.AddTorrentFile(Fixture("Multi", true, 2), "TV");
         await SeedAsync(live, multi, 2);
         string multiFolder = StoragePaths.TorrentFolder("Multi", multi);
+        check(!StoragePaths.Equal(live.GetStats(multi)!.ContentPath, live.GetStats(multi)!.ApiSavePath),
+            "Sonarr receives distinct content_path and base save_path for an owned multi-file folder");
+        check(StoragePaths.Equal(live.GetStats(multi)!.ApiSavePath, grouped.SavePath),
+            "qBittorrent API reports the logical download root, not the owned content directory");
+        string requested = await live.AddTorrentFile(Fixture("api-request.bin", false, 20), "flat", createSubfolder: true);
+        check(live.GetOptions(requested).StorageSubfolder != null,
+            "Sonarr per-download Subfolder overrides a legacy flat category without mutating category settings");
         check(live.GetContentFilePaths(multi).All(p => StoragePaths.Equal(Path.GetDirectoryName(p)!, Path.Combine(grouped.SavePath, multiFolder))),
             "multi-file subfolder intake has exactly one outer torrent directory");
         string flatId = await live.AddTorrentFile(Fixture("flat.bin", false, 3), "flat");
@@ -139,6 +146,14 @@ internal static class StorageTests
         check(await live.Move(flatId, downloads + Path.DirectorySeparatorChar) && StoragePaths.Equal(live.GetStats(flatId)!.SavePath, downloads),
             "enabling subfolders does not silently reorganize an existing flat torrent");
         flat.CreateTorrentSubfolder = false;
+        check(await live.RepairContentLayoutAsync(flatId)
+            && !StoragePaths.Equal(live.GetStats(flatId)!.SavePath, downloads)
+            && File.Exists(live.GetContentFilePaths(flatId).Single()),
+            "explicit flat-layout repair moves only selected torrent payload into an owned folder");
+        string repairedPath = live.GetStats(flatId)!.SavePath;
+        check(await live.RepairContentLayoutAsync(flatId) && StoragePaths.Equal(live.GetStats(flatId)!.SavePath, repairedPath),
+            "layout repair is idempotent for an already owned folder");
+        check(!await live.RepairContentLayoutAsync(magnet), "layout repair rejects magnets before metadata");
         string legacy = await live.AddTorrentFile(Fixture("LegacyMulti", true, 5), "flat");
         await SeedAsync(live, legacy, 5);
         check(await live.Move(legacy, completed) && File.Exists(Path.Combine(completed, "LegacyMulti", "video.bin")),

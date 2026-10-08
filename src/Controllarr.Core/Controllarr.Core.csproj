@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="MonoTorrent" Version="3.0.2" />
+    <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
     <PackageReference Include="SharpCompress" Version="1.0.0" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>

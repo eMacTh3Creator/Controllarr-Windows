@@ -1,11 +1,31 @@
 # Native Desktop Validation
 
-Date: October 8, 2026. Current release: `2.2.4`. Historical original candidates:
+Date: October 8, 2026. Current release: `2.3.0`. Historical original candidates:
 `2.2.0-preview.1` and `2.2.0-preview.2`. Baseline results below refer to
 preview.1 unless noted; preview hashes are preserved as historical evidence.
 Host: macOS cross-build; test target: the user's running Windows 11 ARM64
 Parallels VM (10 virtual CPUs, 24 GB RAM). All engine fixtures and the live app
 use disposable lab folders, never the user's production profile.
+
+## v2.3.0 Remote and Import Prechecks
+
+The final VM engine runner passed 248 checks, including explicit flat-layout repair,
+repair idempotence, metadata gating, distinct Sonarr content/base paths,
+per-add layout overrides, real loopback metadata/payload downloads and a real
+1,000-torrent engine fixture and shared remote/desktop state mapping. The
+paused/offline fixture imported in 4.70 seconds, uncached polling took 3.63 ms,
+and runner private bytes were 53.7 MB. These are
+not measurements of 1,000 simultaneous WAN downloads or desktop process RSS.
+The package pipeline also passed native XAML/selection and profile-import tests.
+Both exact x64 and ARM64 ZIPs passed authenticated Remote Protocol 1, bounded
+events/pages, missing-VPN DHT denial, LAN control-plane responsiveness, force-start
+guarding, live limits, encrypted-secret/settings restart, queue reset and
+persistent batch-removal checks. Both Setup.exe packages passed install,
+profile-preserving upgrade, optional older-profile import with backup and
+uninstall while retaining metadata. All four SHA-256 values were checked after
+copying the packages to the build host. x64 ran under Windows-on-ARM emulation,
+not physical Intel/AMD hardware. No production profile was used. Historical
+results below remain historical and are not substituted for new verification.
 
 ## v2.2.4 Storage Prechecks
 

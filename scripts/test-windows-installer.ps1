@@ -1,6 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$InstallerPath,
     [ValidateSet('win-x64','win-arm64')][string]$RuntimeIdentifier,
-    [string]$Version = '2.2.4')
+    [string]$Version = '2.3.0')
 $ErrorActionPreference = 'Stop'
 $id = [guid]::NewGuid().ToString('N')
 $root = Join-Path $env:LOCALAPPDATA "ControllarrNativeLab\installer-tests-$id"

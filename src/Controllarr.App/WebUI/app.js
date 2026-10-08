@@ -441,6 +441,7 @@ function normSettings(s) {
     defaultSavePath: s.default_save_path ?? '',
     createTorrentSubfolders: !!s.create_torrent_subfolders,
     webUIHost: s.web_ui_host ?? '127.0.0.1',
+    remoteDiscoveryEnabled: s.remote_discovery_enabled ?? true,
     webUIPort: s.web_ui_port ?? 8791,
     webUIUsername: s.web_ui_username ?? 'admin',
     webUIPassword: '', // form field stays blank; never echo the secret to the UI
@@ -530,6 +531,7 @@ function settingsToPayload(s) {
     default_save_path: s.defaultSavePath ?? '',
     create_torrent_subfolders: !!s.createTorrentSubfolders,
     web_ui_host: s.webUIHost ?? '127.0.0.1',
+    remote_discovery_enabled: s.remoteDiscoveryEnabled ?? true,
     web_ui_port: int(s.webUIPort),
     web_ui_username: s.webUIUsername ?? 'admin',
     // The server replaces settings wholesale and Settings.WebUIPassword
@@ -1942,6 +1944,7 @@ function renderSettings() {
     el('div', { class: 'form-grid' }, [
       field('Bind host', el('input', { value: s.webUIHost, oninput: (e) => { s.webUIHost = e.currentTarget.value; state.settingsDirty = true } })),
       field('Port', portInput(s.webUIPort, '8791', (v) => { s.webUIPort = v; state.settingsDirty = true })),
+      field('Advertise to iOS on LAN (restart required)', el('input', { type: 'checkbox', checked: s.remoteDiscoveryEnabled, onchange: (e) => patchSettings({ remoteDiscoveryEnabled: e.currentTarget.checked }) })),
       field('Username', el('input', { value: s.webUIUsername, oninput: (e) => { s.webUIUsername = e.currentTarget.value; state.settingsDirty = true } })),
       field('Password', el('input', { type: 'password', placeholder: 'Leave blank to keep current password', value: s.webUIPassword, oninput: (e) => { s.webUIPassword = e.currentTarget.value; state.settingsDirty = true } })),
     ]),

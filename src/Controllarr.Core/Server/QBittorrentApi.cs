@@ -300,7 +300,7 @@ namespace Controllarr.Core.Server
                 {
                     ["hash"] = t.InfoHash,
                     ["name"] = t.Name,
-                    ["save_path"] = t.SavePath,
+                    ["save_path"] = string.IsNullOrEmpty(t.ApiSavePath) ? t.SavePath : t.ApiSavePath,
                     ["content_path"] = t.ContentPath,
                     ["total_size"] = t.TotalWanted,
                     ["progress"] = t.Progress,
@@ -342,6 +342,7 @@ namespace Controllarr.Core.Server
                 string? savePath = null;
                 var magnets = new List<string>();
                 var torrentFiles = new List<byte[]>();
+                bool? createSubfolder = null;
 
                 string contentType = ctx.Request.ContentType ?? "";
 
@@ -371,6 +372,9 @@ namespace Controllarr.Core.Server
                             case "savepath":
                                 savePath = Encoding.UTF8.GetString(part.Data).Trim();
                                 break;
+                            case "contentlayout":
+                                createSubfolder = ParseContentLayout(Encoding.UTF8.GetString(part.Data));
+                                break;
                         }
                     }
                 }
@@ -389,6 +393,7 @@ namespace Controllarr.Core.Server
                     }
                     category = form.GetValueOrDefault("category", null);
                     savePath = form.GetValueOrDefault("savepath", null);
+                    createSubfolder = ParseContentLayout(form.GetValueOrDefault("contentLayout", ""));
                 }
 
                 // Resolve save path
@@ -412,7 +417,7 @@ namespace Controllarr.Core.Server
                 {
                     try
                     {
-                        string hash = await engine.AddMagnet(magnet, category, savePath, persist: false);
+                        string hash = await engine.AddMagnet(magnet, category, savePath, persist: false, createSubfolder: createSubfolder);
                         if (!string.IsNullOrEmpty(category))
                         {
                             store.NoteCategoryForHash(hash, category);
@@ -437,7 +442,7 @@ namespace Controllarr.Core.Server
                         await File.WriteAllBytesAsync(tempPath, fileBytes);
                         try
                         {
-                            string hash = await engine.AddTorrentFile(tempPath, category, savePath, persist: false);
+                            string hash = await engine.AddTorrentFile(tempPath, category, savePath, persist: false, createSubfolder: createSubfolder);
                             if (!string.IsNullOrEmpty(category))
                             {
                                 store.NoteCategoryForHash(hash, category);
@@ -1103,7 +1108,7 @@ namespace Controllarr.Core.Server
                 ["state"] = MapState(t),
                 ["status_reason"] = t.StatusReason,
                 ["category"] = cat ?? "",
-                ["save_path"] = t.SavePath,
+                ["save_path"] = string.IsNullOrEmpty(t.ApiSavePath) ? t.SavePath : t.ApiSavePath,
                 ["content_path"] = t.ContentPath,
                 ["added_on"] = new DateTimeOffset(t.AddedDate).ToUnixTimeSeconds(),
                 ["completion_on"] = t.Progress >= 0.999f
@@ -1123,7 +1128,7 @@ namespace Controllarr.Core.Server
         /// <summary>
         /// Maps internal TorrentState + runtime stats to a qBittorrent state string.
         /// </summary>
-        private static string MapState(TorrentStats t)
+        internal static string MapState(TorrentStats t)
         {
             if (t.State == TorrentState.Queued) return t.Progress >= 1 ? "queuedUP" : "queuedDL";
             if (t.State == TorrentState.Error) return "error";
@@ -1165,6 +1170,13 @@ namespace Controllarr.Core.Server
         /// Parses pipe-separated hash strings. "all" returns an empty list
         /// (caller should treat as "all torrents").
         /// </summary>
+        private static bool? ParseContentLayout(string value) => value.Trim().ToLowerInvariant() switch
+        {
+            "subfolder" => true,
+            "nosubfolder" => false,
+            _ => null
+        };
+
         private static List<string> ParsePipeSeparatedHashes(string hashStr)
         {
             if (string.IsNullOrWhiteSpace(hashStr))

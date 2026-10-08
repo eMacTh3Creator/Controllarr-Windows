@@ -50,6 +50,7 @@ namespace Controllarr.Core.Server
 
         // ── Runtime ─────────────────────────────────────────────────
         private WebApplication? _app;
+        private RemoteApi? _remote;
 
         public ControllarrHttpServer(
             string host,
@@ -221,6 +222,8 @@ namespace Controllarr.Core.Server
                 _engine, _store, _logger, _postProcessor, _seedingPolicy,
                 _healthMonitor, _recovery, _diskSpace, _vpn, _arrNotifier,
                 _forceCyclePort, _shutdownApp, _sessions, validateCredentials);
+            _remote = new RemoteApi();
+            _remote.Start(_app, _engine, _store, _vpn, _logger, _host, _port);
 
             // ── Serve static files (WebUI) ──────────────────────────
             if (!string.IsNullOrEmpty(_webUIRoot) && Directory.Exists(_webUIRoot))
@@ -265,6 +268,8 @@ namespace Controllarr.Core.Server
         {
             if (_app != null)
             {
+                if (_remote != null) await _remote.DisposeAsync();
+                _remote = null;
                 _logger.Info("HttpServer", "Shutting down HTTP server");
                 await _app.StopAsync();
                 await _app.DisposeAsync();

@@ -40,6 +40,7 @@ public sealed class TorrentStats
     public string InfoHash { get; init; } = string.Empty;
     public string SavePath { get; init; } = string.Empty;
     public string ContentPath { get; init; } = string.Empty;
+    public string ApiSavePath { get; init; } = string.Empty;
     public bool HasMetadata { get; init; }
     public float Progress { get; init; }
     public TorrentState State { get; init; }
@@ -292,19 +293,19 @@ public sealed partial class TorrentEngine : IDisposable
     /// Adds a torrent via its magnet URI and starts downloading.
     /// </summary>
     /// <returns>The hex info-hash of the added torrent.</returns>
-    public async Task<string> AddMagnet(string uri, string? category = null, string? savePath = null, bool persist = true)
+    public async Task<string> AddMagnet(string uri, string? category = null, string? savePath = null, bool persist = true, bool? createSubfolder = null)
     {
         ThrowIfDisposed();
 
         var magnet = MagnetLink.Parse(uri);
-        return await AddSourceAsync(magnet, null, category, savePath, persist);
+        return await AddSourceAsync(magnet, null, category, savePath, persist, createSubfolder);
     }
 
     /// <summary>
     /// Adds a torrent from a .torrent file on disk and starts downloading.
     /// </summary>
     /// <returns>The hex info-hash of the added torrent.</returns>
-    public async Task<string> AddTorrentFile(string filePath, string? category = null, string? savePath = null, bool persist = true)
+    public async Task<string> AddTorrentFile(string filePath, string? category = null, string? savePath = null, bool persist = true, bool? createSubfolder = null)
     {
         ThrowIfDisposed();
 
@@ -312,10 +313,10 @@ public sealed partial class TorrentEngine : IDisposable
             throw new System.IO.FileNotFoundException("Torrent file not found.", filePath);
 
         var torrent = await Torrent.LoadAsync(filePath);
-        return await AddSourceAsync(null, torrent, category, savePath, persist);
+        return await AddSourceAsync(null, torrent, category, savePath, persist, createSubfolder);
     }
 
-    private async Task<string> AddSourceAsync(MagnetLink? magnet, Torrent? torrent, string? category, string? savePath, bool persist)
+    private async Task<string> AddSourceAsync(MagnetLink? magnet, Torrent? torrent, string? category, string? savePath, bool persist, bool? createSubfolder)
     {
         // Serialize intake with removal/scheduling, but never block a thread on
         // MonoTorrent's asynchronous main loop or perform whole-library checkpoints per add.
@@ -330,7 +331,7 @@ public sealed partial class TorrentEngine : IDisposable
                 if (persist) await SaveEngineStateAsync(checkpointResume: false);
                 return hash;
             }
-            string save = ResolveIntakePath(savePath, category, torrent?.Name ?? magnet?.Name, hash, out string? folder);
+            string save = ResolveIntakePath(savePath, category, torrent?.Name ?? magnet?.Name, hash, out string? folder, createSubfolder);
             var layout = new TorrentSettingsBuilder { CreateContainingDirectory = folder == null }.ToSettings();
             var manager = magnet != null ? await _engine.AddAsync(magnet, save, layout) : await _engine.AddAsync(torrent!, save, layout);
             RegisterManager(hash, manager);
@@ -422,7 +423,7 @@ public sealed partial class TorrentEngine : IDisposable
         finally { _queueGate.Release(); }
     }
 
-    public async Task<bool> Move(string infoHash, string newPath)
+    public async Task<bool> Move(string infoHash, string newPath, bool ensureSubfolder = false)
     {
         var mgr = FindManager(infoHash);
         if (mgr is null) return false;
@@ -432,8 +433,8 @@ public sealed partial class TorrentEngine : IDisposable
         {
             if (!mgr.HasMetadata || _removalPending.ContainsKey(infoHash)) return false;
             newPath = StoragePaths.Normalize(newPath);
-            if (StoragePaths.Equal(newPath, mgr.SavePath) || StoragePaths.Equal(newPath, mgr.ContainingDirectory)) return true;
-            newPath = ResolveMovePath(mgr, newPath);
+            if (!ensureSubfolder && (StoragePaths.Equal(newPath, mgr.SavePath) || StoragePaths.Equal(newPath, mgr.ContainingDirectory))) return true;
+            newPath = ResolveMovePath(mgr, newPath, ensureSubfolder);
             if (StoragePaths.Equal(newPath, mgr.ContainingDirectory)) return true;
             foreach (var file in mgr.Files)
             {
@@ -451,7 +452,7 @@ public sealed partial class TorrentEngine : IDisposable
             if (mgr.State == MonoTorrent.Client.TorrentState.Error)
                 throw new IOException(mgr.Error?.Exception.Message ?? "The torrent engine reported a storage error.");
             await mgr.UpdateSettingsAsync(new TorrentSettingsBuilder(mgr.Settings) { CreateContainingDirectory = false }.ToSettings());
-            if (mgr.Torrent!.Files.Count > 1 || OptionsFor(infoHash).StorageSubfolder != null)
+            if (ensureSubfolder || mgr.Torrent!.Files.Count > 1 || OptionsFor(infoHash).StorageSubfolder != null)
                 _options[infoHash] = OptionsFor(infoHash) with { StorageSubfolder = Path.GetFileName(newPath) };
             if (resume) await StartManagedAsync(mgr);
             InvalidateStats();
@@ -1097,6 +1098,9 @@ public sealed partial class TorrentEngine : IDisposable
             InfoHash = hash,
             SavePath = mgr.SavePath,
             ContentPath = !mgr.HasMetadata ? mgr.SavePath : mgr.Files.Count == 1 ? mgr.Files[0].DownloadCompleteFullPath : mgr.ContainingDirectory,
+            ApiSavePath = mgr.HasMetadata && !string.IsNullOrEmpty(mgr.ContainingDirectory) && OptionsFor(hash).StorageSubfolder is { } owned && StoragePaths.Equal(mgr.SavePath, mgr.ContainingDirectory) &&
+                string.Equals(Path.GetFileName(StoragePaths.Normalize(mgr.SavePath)), owned, StringComparison.OrdinalIgnoreCase)
+                    ? Path.GetDirectoryName(StoragePaths.Normalize(mgr.SavePath)) ?? mgr.SavePath : mgr.SavePath,
             HasMetadata = mgr.HasMetadata,
             Progress = (float)(mgr.PartialProgress / 100.0),
             State = state,

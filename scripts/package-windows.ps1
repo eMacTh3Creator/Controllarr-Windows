@@ -21,7 +21,7 @@ try {
         $stage = Join-Path $OutputDirectory "stage-$runtime-$([guid]::NewGuid().ToString('N'))"
         & dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r $runtime --self-contained true -p:PublishSingleFile=false -o $stage --nologo
         if ($LASTEXITCODE -ne 0) { throw "Publish failed: $runtime" }
-        foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'STORAGE.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md', 'STALL_AUDIT.md')) {
+        foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'STORAGE.md', 'MOBILE.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md', 'STALL_AUDIT.md')) {
             Copy-Item (Join-Path 'docs' $guide) (Join-Path $stage $guide)
         }
         Copy-Item LICENSE (Join-Path $stage 'LICENSE')

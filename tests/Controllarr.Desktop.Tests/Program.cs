@@ -19,6 +19,7 @@ TorrentStats Stats(string hash, string name = "Example", string? category = null
     { InfoHash = hash, Name = name, Category = category, State = state, Progress = progress,
       Paused = state == TorrentState.Paused, DownloadRate = rate, TotalWanted = 1024, TotalDone = 512 };
 
+RemoteTests.Run(Check);
 await NetworkPolicyTests.RunAsync(Check);
 await DhtTests.RunAsync(Check);
 await QueueTests.RunAsync(Check);

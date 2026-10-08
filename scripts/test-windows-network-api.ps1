@@ -42,6 +42,13 @@ function StopFixture {
 try {
     $process = Start-Process (Join-Path $directory 'Controllarr.exe') -PassThru
     Login
+    $capabilities = GetJson '/api/controllarr/remote'
+    if ($capabilities.protocol -ne 1 -or $capabilities.platform -ne 'Windows' -or $capabilities.settingsStyle -ne 'snake_case') { throw 'Remote capabilities are incompatible.' }
+    $events = GetJson '/api/controllarr/remote/events'
+    if (!$events.reset -or !$events.epoch) { throw 'Event subscription did not establish a baseline.' }
+    $next = GetJson ("/api/controllarr/remote/events?epoch=$($events.epoch)&cursor=$($events.cursor)")
+    if ($next.reset) { throw 'Valid event cursor unexpectedly reset.' }
+    Write-Output 'PASS authenticated Remote Protocol 1 capabilities and bounded event subscription'
     $network = GetJson '/api/controllarr/network'
     if ($network.allowed -or !$network.vpn_required) { throw 'Missing VPN did not fail closed.' }
     if (!$network.dht_allowed -or $network.dht_state -eq 'Disabled' -or $network.dht_nodes -ne 0 -or @($network.adapters).Count -lt 1) {
@@ -65,6 +72,9 @@ try {
     Invoke-WebRequest "$base/api/v2/torrents/setForceStart" -Method Post -Body @{ hashes=$hash; value='true' } -WebSession $session -UseBasicParsing | Out-Null
     Start-Sleep -Seconds 3
     $rows = @(TorrentRows)
+    $page = GetJson '/api/controllarr/remote/torrents?category=storage-fixture&limit=1'
+    if ($page.total -ne 1 -or @($page.items).Count -ne 1 -or $page.items[0].hash -ne $hash) { throw 'Remote category paging disagrees with the engine.' }
+    Write-Output 'PASS remote torrent page filters by category without returning the full library'
     if ($rows.Count -ne 1 -or $rows[0].state -notlike 'queued*') { throw 'API add/resume bypassed the torrent guard.' }
     $expectedPath = Join-Path $categoryPath 'Storage Fixture [012345678901]'
     if ($rows[0].save_path -ne $expectedPath -or $rows[0].content_path -ne $expectedPath) { throw 'API intake did not use the category subfolder without a trailing slash.' }

@@ -36,7 +36,7 @@ jobs:
         run: |
           $project = [xml](Get-Content src/Controllarr.App/Controllarr.App.csproj)
           $version = ($project.Project.PropertyGroup | Where-Object Version | Select-Object -First 1).Version
-          foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'STORAGE.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md', 'STALL_AUDIT.md')) {
+          foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'STORAGE.md', 'MOBILE.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md', 'STALL_AUDIT.md')) {
             Copy-Item "docs/$guide" "publish/${{ matrix.runtime }}/$guide"
           }
           Copy-Item LICENSE publish/${{ matrix.runtime }}/LICENSE

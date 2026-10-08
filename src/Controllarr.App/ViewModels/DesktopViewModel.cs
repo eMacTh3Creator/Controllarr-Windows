@@ -208,6 +208,16 @@ public partial class DesktopViewModel : ObservableObject
 
     [RelayCommand] private void CancelBatch() => _batchCancellation?.Cancel();
 
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private async Task RepairLayoutSelected()
+    {
+        var selected = _selectedRows.ToArray();
+        if (MessageBox.Show(Application.Current.MainWindow,
+            $"Create a containing folder for {selected.Length:N0} selected torrent(s) that are still stored flat? Only these torrents' registered files are moved. Existing destination files are not overwritten. This may take time.",
+            "Repair import folder layout", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        await RunBatchAsync("Repair import layout", selected, hash => _runtime.DesktopEngine!.RepairContentLayoutAsync(hash));
+    }
+
     public async Task WaitForIdleAsync()
     {
         _stopping = true;
@@ -395,7 +405,7 @@ public partial class DesktopViewModel : ObservableObject
         PauseSelectedCommand.NotifyCanExecuteChanged(); ResumeSelectedCommand.NotifyCanExecuteChanged();
         ReannounceSelectedCommand.NotifyCanExecuteChanged(); RemoveSelectedCommand.NotifyCanExecuteChanged();
         RecheckSelectedCommand.NotifyCanExecuteChanged();
-        AssignCategoryCommand.NotifyCanExecuteChanged(); MoveSelectedCommand.NotifyCanExecuteChanged();
+        AssignCategoryCommand.NotifyCanExecuteChanged(); MoveSelectedCommand.NotifyCanExecuteChanged(); RepairLayoutSelectedCommand.NotifyCanExecuteChanged();
         OpenFolderCommand.NotifyCanExecuteChanged(); CopyMagnetsCommand.NotifyCanExecuteChanged();
         PauseAllCommand.NotifyCanExecuteChanged(); ResumeAllCommand.NotifyCanExecuteChanged();
         AddMagnetCommand.NotifyCanExecuteChanged(); AddFilesCommand.NotifyCanExecuteChanged();

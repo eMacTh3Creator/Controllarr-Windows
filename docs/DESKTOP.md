@@ -3,9 +3,10 @@
 The redesigned desktop is WPF, not a WebView2 portal. It talks directly to
 MonoTorrent and the runtime services. The browser WebUI and qBittorrent API
 remain separate remote-management interfaces; no WebUI login is needed locally.
-The current v2.2.4 release adds per-torrent storage folders and safe completed
-moves to bound DHT/discovery reliability, queue/peer diagnosis and pause-first
-bulk removal. Full x64/experimental ARM64 installers preserve/import profiles.
+The current v2.3.0 release corrects Sonarr content paths, adds confirmed import
+folder repair and supports native iOS remote management. It retains storage
+folders, safe moves, bound DHT, queue/peer diagnosis and pause-first bulk removal.
+x64/experimental ARM64 installers preserve/import profiles.
 See [INSTALL.md](INSTALL.md) and [STORAGE.md](STORAGE.md).
 
 ## Transfer Workspace

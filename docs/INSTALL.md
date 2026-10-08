@@ -1,6 +1,8 @@
 # Install Controllarr for Windows
 
-v2.2.4 provides a full per-user installer and optional portable ZIP for each CPU.
+v2.3.0 provides a full per-user installer and optional portable ZIP for each CPU.
+See [MOBILE.md](MOBILE.md) for optional native iOS remote setup. No phone app is
+required for desktop or browser operation.
 
 After upgrading, enable **Create a subfolder for each new torrent** in your
 existing categories and Save Category if you want clean future download roots.

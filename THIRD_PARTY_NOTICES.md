@@ -1,5 +1,11 @@
 # Third-Party Notices
 
+## Multicast DNS
+
+LAN discovery uses Makaretu.Dns.Multicast 0.27.0, Copyright Richard Schneider,
+under the MIT license: https://github.com/richardschneider/net-mdns.
+The MIT permission and warranty terms reproduced below also apply to this library.
+
 ## MonoTorrent DHT Source
 
 `src/Controllarr.Core/ThirdParty/MonoTorrentDht` derives from MonoTorrent 3.0.2,

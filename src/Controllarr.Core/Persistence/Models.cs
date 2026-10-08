@@ -420,6 +420,8 @@ namespace Controllarr.Core.Persistence
 
     public class Settings
     {
+        [JsonPropertyName("remote_discovery_enabled")]
+        public bool RemoteDiscoveryEnabled { get; set; } = true;
         [JsonPropertyName("listen_port_range_start")]
         public ushort ListenPortRangeStart { get; set; } = 49152;
 
