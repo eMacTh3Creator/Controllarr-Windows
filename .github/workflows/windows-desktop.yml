@@ -20,6 +20,8 @@ jobs:
         run: dotnet build Controllarr.sln -c Release
       - name: Validate public download links
         run: node scripts/test-site.cjs
+      - name: Validate browser queue and connection settings
+        run: node scripts/test-webui-queue.cjs
       - name: Headless catalog and bulk-action tests
         run: dotnet run --project tests/Controllarr.Desktop.Tests -c Release -- --bulk-removal
       - name: Previous-profile import safeguards

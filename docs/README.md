@@ -17,9 +17,9 @@ This folder holds the higher-level product and planning docs that sit alongside 
 ## Releases
 
 - [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
-- [Release Notes](../RELEASE_NOTES_v2.2.1.md) - installers/profile import and faster bulk removal
+- [Release Notes](../RELEASE_NOTES_v2.2.2.md) - queue repair, download connection headroom and transfer diagnosis
 
-The current Windows release is **v2.2.1**, adding installers and pause-first bulk removal to the native desktop, managed queues, RSS/watch folders, VPN binding and advanced-client controls. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
+The current Windows release is **v2.2.2**, adding live queue ranks, download-first admission, peer-budget headroom and waiting diagnosis to the native desktop, installers, pause-first removal, RSS/watch folders and VPN controls. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

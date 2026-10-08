@@ -79,6 +79,7 @@ internal static class RemovalTests
         check(engine.PollStats().Length == 1 && engine.GetStats(unselected) != null && File.Exists(Path.Combine(downloads, "fixture-0.bin")),
             "bulk registration removal keeps payload files and leaves unselected torrents untouched");
         selected.Clear();
+        check(engine.GetOptions(unselected).Position == 1, "bulk removal compacts remaining queue positions once at completion");
         for (int i = 100; i < 132; i++) selected.Add(await engine.ImportTorrentFileAsync(Fixture(i), downloads));
         using (var cancel = new CancellationTokenSource())
         {
@@ -89,6 +90,7 @@ internal static class RemovalTests
             check(result.Cancelled && result.Succeeded == 1 && !File.Exists(Path.Combine(downloads, "fixture-100.bin"))
                 && File.Exists(Path.Combine(downloads, "fixture-101.bin")), "cancel stops further disk deletions after the current item finishes");
             check(selected.Skip(1).All(h => engine.GetStats(h)?.Paused == true), "cancelled removal leaves every remaining selected torrent paused");
+            check(engine.PollStats().Select(s => s.QueuePosition).Order().SequenceEqual(Enumerable.Range(1, 32).Select(i => (long)i)), "cancelled removal compacts positions for only the surviving torrents");
         }
         await engine.Shutdown();
         var saved = BEncodedValue.Decode<BEncodedDictionary>(File.ReadAllBytes(Path.Combine(resume, "engine.state")));
@@ -177,6 +179,9 @@ internal static class RemovalTests
             check(result.Succeeded == 2376 && result.Failures.Count == 0 && restored.PollStats().Length == 1,
                 "large batch removes 2,376 real disposable torrent registrations and payload files");
             Console.WriteLine($"BENCH removal: 2,376 paused local 16KiB fixtures, no peers/trackers, {timer.Elapsed.TotalSeconds:F2}s; not a real disk/network throughput guarantee");
+            string next = await restored.ImportTorrentFileAsync(Fixture(22376), downloads, persist: false);
+            check(restored.GetOptions(unselected).Position == 1 && restored.GetOptions(next).Position == 2,
+                "adding after 2,376 deletions uses the live queue size, not the old sequence counter");
         }
         await restored.Shutdown();
         Console.WriteLine($"Removal fixtures retained at {root}");

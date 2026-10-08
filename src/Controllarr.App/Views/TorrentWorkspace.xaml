@@ -68,7 +68,9 @@
                         </Grid>
                     </DataTemplate></DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="130"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="130">
+                    <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="ToolTip" Value="{Binding StatusReason}"/></Style></DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Download" Binding="{Binding DownloadRate, Converter={StaticResource SpeedConverter}}" SortMemberPath="DownloadRate" Width="100"/>
                 <DataGridTextColumn Header="Upload" Binding="{Binding UploadRate, Converter={StaticResource SpeedConverter}}" SortMemberPath="UploadRate" Width="100"/>
                 <DataGridTextColumn Header="Peers" Binding="{Binding NumPeers}" Width="65"/>
@@ -88,6 +90,7 @@
                 <TextBlock Text="{Binding DetailStatus}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding DetailStatus}"/>
                 <Button Grid.Column="1" Content="Refresh details" Command="{Binding RefreshDetailsCommand}" Style="{StaticResource SubtleButton}"/>
             </Grid>
+            <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedRow.StatusReason}" TextWrapping="Wrap" Margin="12,0,12,8" Foreground="{StaticResource AccentLightBrush}"/>
             <TabControl>
                 <TabItem Header="Files">
                     <DockPanel>
@@ -114,8 +117,8 @@
                     <DataGrid ItemsSource="{Binding Trackers}"><DataGrid.Columns>
                         <DataGridTextColumn Header="Tracker URL" Binding="{Binding Url}" Width="*"/>
                         <DataGridTextColumn Header="Tier" Binding="{Binding Tier}" Width="60"/>
-                        <DataGridTextColumn Header="Seeds" Binding="{Binding NumSeeds}" Width="80"/>
-                        <DataGridTextColumn Header="Peers" Binding="{Binding NumPeers}" Width="80"/>
+                        <DataGridTextColumn Header="Reported seeds" Binding="{Binding SeedCountText}" Width="110"/>
+                        <DataGridTextColumn Header="Reported peers" Binding="{Binding PeerCountText}" Width="110"/>
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="220"/>
                     </DataGrid.Columns></DataGrid>
                     </DockPanel>

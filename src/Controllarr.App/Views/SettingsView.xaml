@@ -85,11 +85,14 @@
                         <StackPanel>
                             <TextBlock Text="Global peer connection limit" Style="{StaticResource SecondaryText}" Margin="0,0,0,4"/>
                             <TextBox Text="{Binding Settings.ConnectionLimits.GlobalMaxConnections, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Download connection reserve (0-90%, 0 = off)" Style="{StaticResource SecondaryText}" Margin="0,12,0,4"/>
+                            <TextBox Text="{Binding Settings.ConnectionLimits.DownloadReservePercent, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="While downloads are active, ordinary seeds share the remaining connection budget. Extra seeds wait automatically, even if active-torrent queueing is off. Forced seeds retain their caps; this is headroom, not a guarantee of seed availability." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8"/>
                             <TextBlock Text="Default connections per torrent (1-10000)" Style="{StaticResource SecondaryText}" Margin="0,12,0,4"/>
                             <TextBox Text="{Binding Settings.ConnectionLimits.MaxConnectionsPerTorrent, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
                             <TextBlock Text="Default upload slots per torrent (2-1000, not a global slot cap)" Style="{StaticResource SecondaryText}" Margin="0,12,0,4"/>
                             <TextBox Text="{Binding Settings.ConnectionLimits.GlobalMaxUploadSlots, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
-                            <TextBlock Text="A large library does not need thousands of peer connections. Start with 200 and measure CPU, memory and disk usage." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,12"/>
+                            <TextBlock Text="Watch the status bar's Peers used/limit counter. If full, reduce active seeds or per-torrent connections before raising the global cap. More connections cost CPU, memory and disk work." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,12"/>
                             <CheckBox Content="Enable DHT" IsChecked="{Binding Settings.PeerDiscovery.DhtEnabled}" Margin="0,4"/>
                             <CheckBox Content="Enable peer exchange (PEX)" IsChecked="{Binding Settings.PeerDiscovery.PexEnabled}" Margin="0,4"/>
                             <CheckBox Content="Enable local peer discovery (LSD)" IsChecked="{Binding Settings.PeerDiscovery.LsdEnabled}" Margin="0,4"/>

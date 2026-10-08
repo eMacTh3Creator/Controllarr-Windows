@@ -54,6 +54,7 @@ try {
     $rows = @(TorrentRows)
     if ($rows.Count -ne 1 -or $rows[0].state -notlike 'queued*') { throw 'API add/resume bypassed the torrent guard.' }
     Write-Output 'PASS qBittorrent add/resume/force-start cannot bypass the VPN guard'
+    if ($rows[0].priority -ne 1 -or $rows[0].status_reason -notlike '*VPN*') { throw 'Queue rank or VPN waiting diagnosis missing from API' }
     $controls = @{ MaximumConnections=12; UploadSlots=3; Sequential=$true } | ConvertTo-Json
     Invoke-WebRequest "$base/api/controllarr/torrents/$hash/options" -Method Post -Body $controls -ContentType 'application/json' -WebSession $session -UseBasicParsing | Out-Null
     $saved = GetJson "/api/controllarr/torrents/$hash/options"
@@ -61,10 +62,16 @@ try {
     $settings = GetJson '/api/controllarr/settings'
     if ($settings.torrent_network.ProxyPassword -ne 'fixture-secret') { throw 'DPAPI secret did not load.' }
     $settings.vpn_enabled = $false
+    $settings.connection_limits.global_max_connections = 75
+    $settings.connection_limits.download_reserve_percent = 50
     Invoke-WebRequest "$base/api/controllarr/settings" -Method Post -Body ($settings | ConvertTo-Json -Depth 30) -ContentType 'application/json' -WebSession $session -UseBasicParsing | Out-Null
     $network = GetJson '/api/controllarr/network'
     if ($network.allowed -or !$network.restart_required) { throw 'Topology change reopened old torrent routes.' }
     Write-Output 'PASS network topology changes latch the session closed until restart'
+    if ((GetJson '/api/controllarr/stats').connection_limit -ne 75 -or (GetJson '/api/controllarr/settings').connection_limits.download_reserve_percent -ne 50) {
+        throw 'Browser settings did not apply the global connection cap live or preserve the reserve'
+    }
+    Write-Output 'PASS browser connection limits apply live without weakening the network guard'
     StopFixture
     if ((Get-Content (Join-Path $profile 'state.json') -Raw).Contains('fixture-secret')) { throw 'Proxy password leaked into state.json.' }
     Write-Output 'PASS SOCKS5 password is absent from plaintext state.json'
@@ -80,10 +87,17 @@ try {
     Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$otherHash" } -WebSession $session -UseBasicParsing | Out-Null
     Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes="$hash|$($hash.ToUpperInvariant())"; deleteFiles='false' } -WebSession $session -UseBasicParsing | Out-Null
     $remaining = @(TorrentRows)
-    if ($remaining.Count -ne 1 -or $remaining[0].hash -ne $otherHash) { throw 'Batch API deletion did not preserve the unselected torrent' }
+    if ($remaining.Count -ne 1 -or $remaining[0].hash -ne $otherHash -or $remaining[0].priority -ne 1) { throw 'Batch API deletion did not preserve and compact the unselected torrent' }
     Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes='all'; deleteFiles='true' } -WebSession $session -UseBasicParsing | Out-Null
     if (@(TorrentRows).Count -ne 0) { throw 'API hashes=all deletion did not remove the disposable library' }
     Write-Output 'PASS API deletion deduplicates selection, preserves unselected torrents and supports hashes=all'
+    $freshHash = 'd' * 40
+    Invoke-WebRequest "$base/api/v2/torrents/add" -Method Post -Body @{ urls="magnet:?xt=urn:btih:$freshHash" } -WebSession $session -UseBasicParsing | Out-Null
+    Invoke-WebRequest "$base/api/v2/torrents/pause" -Method Post -Body @{ hashes=$freshHash } -WebSession $session -UseBasicParsing | Out-Null
+    $fresh = @(TorrentRows)
+    if ($fresh.Count -ne 1 -or $fresh[0].priority -ne 1 -or $fresh[0].state -notlike 'paused*') { throw 'Post-deletion add did not reset rank or stop metadata on pause' }
+    Write-Output 'PASS adding after emptying the queue restarts at 1; metadata pause stops actual transfer activity'
+    Invoke-WebRequest "$base/api/v2/torrents/delete" -Method Post -Body @{ hashes='all'; deleteFiles='false' } -WebSession $session -UseBasicParsing | Out-Null
     StopFixture
     $process = Start-Process (Join-Path $directory 'Controllarr.exe') -PassThru
     Login

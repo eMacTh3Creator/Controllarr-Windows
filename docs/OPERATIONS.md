@@ -1,7 +1,8 @@
 # Operations Guide
 
 This doc covers the operator-focused foundations available in Controllarr for
-Windows. The current release is v2.2.1, including installers, profile import,
+Windows. The current release is v2.2.2, including queue repair, download peer
+headroom, transfer diagnosis, installers, profile import,
 pause-first bulk removal and enforced adapter binding. The operator workflows below reflect
 the Windows engine, paths, and tooling.
 
@@ -40,7 +41,7 @@ detail.
 
 ## Running Controllarr
 
-v2.2.1 provides per-user x64/ARM64 installers, preserving existing AppData
+v2.2.2 provides per-user x64/ARM64 installers, preserving existing AppData
 settings by default, plus optional profile import with backup. Portable ZIPs
 remain available; extract the whole folder and keep its DLLs together. No .NET
 install is required. ARM64 remains experimental; see [INSTALL.md](INSTALL.md).
@@ -60,6 +61,23 @@ torrents stay paused after restart; explicitly resume them or select them for a
 later removal batch. Failed items stay listed and are reported in Log. Deleted
 files cannot be rolled back. Slow disks, SMB, antivirus and pending disk flushes
 can still slow a batch.
+
+### New Torrent Not Downloading
+
+Queue positions reflect the live library and compact after removal/restart.
+An old position such as 2001 was a stale counter, not evidence of 2000 deleted
+jobs consuming slots. Select the torrent and read its live waiting reason, then:
+
+- Check queued download/seed/total caps, including 0 values; downloads take priority over ordinary seeds under a shared total cap.
+- Check the status bar's global Peers used/limit counter. At the cap, existing peers can prevent new connections. Reduce active seeds/peer caps before raising the global limit; observe CPU, RAM and disk activity.
+- Use **Download connection reserve** in native/browser Settings (25% default, 0-90%, 0 off). Ordinary seeds share the remaining peer budget while downloads are eligible; excess seeds queue even with active-torrent queueing disabled. Forced seeds can still consume headroom.
+- Check VPN/restart and low-disk guards before assuming the swarm is empty.
+- Metadata waits need peers that supply metadata. Connected but idle peers may be choking or lack requested pieces. Refresh Trackers/Peers; no connected peers and Unknown scrape counts do not establish that a swarm has no seeders.
+
+The API exposes `status_reason` and compact `priority` in torrent info/properties,
+plus `connected_peers` and `connection_limit` in `/api/controllarr/stats`.
+Browser settings apply the global peer cap live. The reserve never raises it;
+it is headroom, not a peer/throughput guarantee or private-tracker policy exemption.
 
 - Launch `Controllarr.exe` to start the WPF app, the embedded Kestrel HTTP
   server, and the bundled Web UI together.

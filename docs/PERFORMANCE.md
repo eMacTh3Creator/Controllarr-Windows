@@ -40,6 +40,13 @@ Do not treat a synthetic row test as a guarantee of production stability.
 - Active queue planning caps ordinary downloads/seeds/total separately from
   library size. Stop operations precede newly admitted starts. Force-start is
   explicit; manually paused torrents and errors are excluded.
+- Queue positions compact once after a removal batch, not after every row;
+  legacy positions normalize on startup and unknown hash probes cannot consume ranks.
+- Download-first slot admission and configurable peer headroom prevent ordinary
+  seeds from using the full global connection budget while downloads are eligible.
+  Seed caps are effective runtime limits, not destructive edits to saved overrides.
+  At most eight scheduler stop/reconnect workers run; disk/network completion
+  still finishes safely, with no new starts if a stop fails.
 - RSS intake uses one cancellable worker with bounded bodies/history and one
   engine/history checkpoint per scan rather than per feed entry.
 
@@ -85,6 +92,14 @@ Repeat after pause/resume, category filtering, storage moves and app restart.
 The native Settings page exposes the global peer connection limit (200 by
 default), per-torrent connection/upload-slot defaults, DHT, LSD, active queue
 caps and global KiB/s limits. More connections are not automatically faster.
+The status bar exposes Peers used/limit. If full, use active seed/per-torrent
+caps and download connection reserve before raising the global limit. Reserve
+defaults to 25% (0-90%, 0 off) and also operates when active-torrent queueing is
+disabled. Ordinary seeds share the remaining budget; extra seeds queue, then
+return when no downloads are eligible. Forced seeds retain their controls and
+can consume headroom. This does not guarantee seed availability, uniform
+connections per download, or immediate connection recycling. Review private
+tracker requirements before queuing seeds. Browser saves apply these limits live.
 These controls and the default save folder apply when settings are saved.
 Preferred listen-port changes can apply live; WebUI listener and torrent
 VPN/proxy/blocklist topology changes require a restart. Protected discovery

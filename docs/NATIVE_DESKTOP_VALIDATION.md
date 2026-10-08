@@ -1,11 +1,39 @@
 # Native Desktop Validation
 
-Date: October 7, 2026. Current release: `2.2.1`. Historical original candidates:
+Date: October 7, 2026. Current release: `2.2.2`. Historical original candidates:
 `2.2.0-preview.1` and `2.2.0-preview.2`. Baseline results below refer to
 preview.1 unless noted; preview hashes are preserved as historical evidence.
 Host: macOS cross-build; test target: the user's running Windows 11 ARM64
 Parallels VM (10 virtual CPUs, 24 GB RAM). All engine fixtures and the live app
 use disposable lab folders, never the user's production profile.
+
+## v2.2.2 Source Prechecks
+
+Release cross-build passed with zero errors. Windows VM logic/real-engine tests
+passed 132 checks (134 with the optional 2,376-torrent removal fixture). New
+coverage includes download-first total-cap admission, explicit zero-cap reasons,
+1,000-seed bounded connection planning, forced/lower cap accounting, reserve
+validation/migration, live reason notifications without filter resets, and
+unknown tracker counts. Real-engine fixtures check single/bulk/cancelled queue
+compaction, legacy restart repair, unknown option probes, and rank 1 after
+emptying the library. Adding after 2,376 deletions uses the remaining live count.
+
+The connection test establishes two real loopback BitTorrent peer handshakes,
+then confirms a tightened seed budget releases existing peers. A third peer
+checks that retained paused sockets close on the next scheduler pass without
+resuming that torrent. Seed caps restore after pausing the last metadata job,
+without rewriting saved overrides. These are controlled peers, not an internet
+swarm or physical VPN test. The disposable 2,376-torrent removal run took 37.52
+seconds; a previous candidate measured 38.23 seconds. No real storage/network
+throughput guarantee is inferred.
+
+WPF tests passed all 13 pages, selection/filter/layout, the live selected-row
+diagnosis binding and 13 realized rows for 10,000 items. Node tests passed WebUI
+queue/connection settings round-trip and unrelated field preservation, status
+normalization, trusted architecture-specific download links and offline fallback.
+Packaging reruns build, engine/WPF and profile-import safeguards. Installer/API
+checks use test-only identities, profile folders and loopback ports; production
+settings/torrents are not used. Historical results below remain unchanged.
 
 ## v2.2.1 Prechecks
 

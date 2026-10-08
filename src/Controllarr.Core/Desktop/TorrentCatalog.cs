@@ -28,6 +28,7 @@ public sealed class TorrentRow : INotifyPropertyChanged
     public DateTime AddedDate => Snapshot.AddedDate;
     public long QueuePosition => Snapshot.QueuePosition;
     public bool ForceStart => Snapshot.ForceStart;
+    public string StatusReason => Snapshot.StatusReason;
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public bool Update(TorrentStats value)
@@ -51,6 +52,7 @@ public sealed class TorrentRow : INotifyPropertyChanged
         Changed(nameof(AddedDate), previous.AddedDate, value.AddedDate);
         Changed(nameof(QueuePosition), previous.QueuePosition, value.QueuePosition);
         Changed(nameof(ForceStart), previous.ForceStart, value.ForceStart);
+        Changed(nameof(StatusReason), previous.StatusReason, value.StatusReason);
         return previous.Name != value.Name || previous.Category != value.Category ||
                previous.State != value.State || previous.Paused != value.Paused || previous.QueuePosition != value.QueuePosition ||
                (previous.Progress >= 1) != (value.Progress >= 1);

@@ -349,6 +349,9 @@ namespace Controllarr.Core.Persistence
         [JsonPropertyName("global_max_connections")]
         public int GlobalMaxConnections { get; set; } = 200;
 
+        [JsonPropertyName("download_reserve_percent")]
+        public int DownloadReservePercent { get; set; } = 25;
+
         [JsonPropertyName("max_connections_per_torrent")]
         public int MaxConnectionsPerTorrent { get; set; } = 60;
 

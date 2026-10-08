@@ -263,7 +263,9 @@ namespace Controllarr.Core
                     var settings = Store.GetSettings();
                     await Engine.ApplyAdvancedSettingsAsync(settings);
                     Engine.ConfigureQueue(settings.TorrentQueueing);
-                    await Engine.TickQueueAsync(!DiskSpaceMonitor.Snapshot().IsPaused && Engine.NetworkPolicy.Allowed);
+                    bool diskBlocked = DiskSpaceMonitor.Snapshot().IsPaused;
+                    await Engine.TickQueueAsync(!diskBlocked && Engine.NetworkPolicy.Allowed,
+                        diskBlocked ? "Transfers blocked: low disk space; check the Disk monitor." : null);
                     await Engine.CheckpointIfDueAsync();
                     var categories = (IReadOnlyList<Category>)Store.GetCategories();
 

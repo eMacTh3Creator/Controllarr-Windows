@@ -1,6 +1,11 @@
 # Torrent Networking and Advanced Controls
 
-Applies to Windows v2.2.0 and v2.2.1, not historical v2.1.19 builds.
+Applies to Windows v2.2.0-v2.2.2, not historical v2.1.19 builds.
+
+v2.2.2 adds bounded download peer headroom (25% by default, 0 disables it) and
+global/per-torrent cap diagnostics. This changes scheduling, not routing: no
+connection-budget or queue action bypasses VPN/proxy/disk guards. A full global
+peer budget is distinct from a closed VPN adapter or missing swarm peers.
 Windows uses MonoTorrent 3.0.2; do not assume macOS/libtorrent behavior.
 
 ## VPN Binding

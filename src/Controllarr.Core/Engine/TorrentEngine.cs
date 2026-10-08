@@ -56,6 +56,7 @@ public sealed class TorrentStats
     public string? Category { get; init; }
     public long QueuePosition { get; init; }
     public bool ForceStart { get; init; }
+    public string StatusReason { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -69,6 +70,7 @@ public sealed class SessionStats
     public long TotalUploaded { get; init; }
     public int NumTorrents { get; init; }
     public int NumPeersConnected { get; init; }
+    public int ConnectionLimit { get; init; }
     public bool HasIncomingConnections { get; init; }
     public ushort ListenPort { get; init; }
 }
@@ -85,6 +87,9 @@ public sealed class TrackerInfo
     public int NumLeechers { get; init; }
     public int NumDownloaded { get; init; }
     public string Message { get; init; } = string.Empty;
+    public bool HasScrapeInfo { get; init; }
+    public string SeedCountText => HasScrapeInfo ? NumSeeds.ToString() : "Unknown";
+    public string PeerCountText => HasScrapeInfo ? NumPeers.ToString() : "Unknown";
 
     /// <summary>Status code: 0 = not contacted, 1 = working, 2 = updating, 3 = error, 4 = unreachable.</summary>
     public int Status { get; init; }
@@ -296,7 +301,7 @@ public sealed partial class TorrentEngine : IDisposable
         }
 
         var hash = manager.InfoHashes.V1OrV2.ToHex();
-        _managersByHash[hash] = manager;
+        RegisterManager(hash, manager);
         InvalidateStats();
 
         if (!string.IsNullOrEmpty(category))
@@ -331,7 +336,7 @@ public sealed partial class TorrentEngine : IDisposable
         }
 
         var hash = manager.InfoHashes.V1OrV2.ToHex();
-        _managersByHash[hash] = manager;
+        RegisterManager(hash, manager);
         InvalidateStats();
 
         if (!string.IsNullOrEmpty(category))
@@ -356,8 +361,12 @@ public sealed partial class TorrentEngine : IDisposable
         await _queueGate.WaitAsync();
         try
         {
-            if (mgr.State == MonoTorrent.Client.TorrentState.Starting) await StopManagerAsync(mgr);
-            else await mgr.PauseAsync();
+            // MonoTorrent PauseAsync is a no-op during metadata/hash fetching.
+            // Fully stop those modes so a user pause always closes transfer activity.
+            if (mgr.State is MonoTorrent.Client.TorrentState.Downloading or MonoTorrent.Client.TorrentState.Seeding or MonoTorrent.Client.TorrentState.Hashing or MonoTorrent.Client.TorrentState.HashingPaused)
+                await mgr.PauseAsync();
+            else if (mgr.State is not (MonoTorrent.Client.TorrentState.Stopped or MonoTorrent.Client.TorrentState.Paused))
+                await StopManagerAsync(mgr, TimeSpan.FromSeconds(2));
             _pausedHashes[infoHash] = 0;
             _queuedHashes.TryRemove(infoHash, out _);
             _options.AddOrUpdate(infoHash, OptionsFor(infoHash) with { ForceStart = false }, (_, previous) => previous with { ForceStart = false });
@@ -405,6 +414,7 @@ public sealed partial class TorrentEngine : IDisposable
         {
             await StopManagerAsync(mgr, TimeSpan.FromSeconds(2));
             await RemoveStoppedAsync(infoHash, mgr, deleteFiles);
+            CompactQueuePositions();
             if (persist) await SaveEngineStateAsync(checkpointResume: false);
             return true;
         }
@@ -691,7 +701,8 @@ public sealed partial class TorrentEngine : IDisposable
                     NumLeechers = leechers,
                     NumDownloaded = downloaded,
                     Message = tracker.FailureMessage ?? tracker.WarningMessage ?? string.Empty,
-                    Status = MapTrackerStatus(tracker.Status)
+                    Status = MapTrackerStatus(tracker.Status),
+                    HasScrapeInfo = scrape != null
                 });
             }
 
@@ -782,6 +793,7 @@ public sealed partial class TorrentEngine : IDisposable
             TotalUploaded = ulTotal,
             NumTorrents = snapshots.Length,
             NumPeersConnected = peers,
+            ConnectionLimit = _engine.Settings.MaximumConnections,
             HasIncomingConnections = _engine.ConnectionManager.OpenConnections > 0,
             ListenPort = _listenPort
         };
@@ -1072,16 +1084,24 @@ public sealed partial class TorrentEngine : IDisposable
             ? (double)mgr.Monitor.DataBytesUploaded / mgr.Monitor.DataBytesDownloaded
             : 0.0;
 
+        var options = OptionsFor(hash);
+        bool queued = _queuedHashes.ContainsKey(hash);
+        var state = queued ? TorrentState.Queued : MapState(mgr.State);
+        bool paused = !queued && (mgr.State is MonoTorrent.Client.TorrentState.Paused or MonoTorrent.Client.TorrentState.HashingPaused or MonoTorrent.Client.TorrentState.Stopped);
+        string? blocked = NetworkPolicy.RestartRequired ? "Torrent networking blocked: restart the app after network settings changes."
+            : !NetworkPolicy.Allowed ? "Torrent networking blocked: the required VPN adapter is unavailable."
+            : _transferBlockReason;
+        string? waiting = null;
+        if (queued) _queueWaitingReasons.TryGetValue(hash, out waiting);
+
         return new TorrentStats
         {
             Name = mgr.Name ?? hash,
             InfoHash = hash,
             SavePath = mgr.SavePath,
             Progress = (float)(mgr.Progress / 100.0),
-            State = _queuedHashes.ContainsKey(hash) ? TorrentState.Queued : MapState(mgr.State),
-            Paused = !_queuedHashes.ContainsKey(hash) && (mgr.State == MonoTorrent.Client.TorrentState.Paused
-                     || mgr.State == MonoTorrent.Client.TorrentState.HashingPaused
-                     || mgr.State == MonoTorrent.Client.TorrentState.Stopped),
+            State = state,
+            Paused = paused,
             DownloadRate = mgr.Monitor.DownloadSpeed,
             UploadRate = mgr.Monitor.UploadSpeed,
             TotalWanted = totalWanted,
@@ -1094,8 +1114,12 @@ public sealed partial class TorrentEngine : IDisposable
             EtaSeconds = eta,
             AddedDate = added == default ? DateTime.UtcNow : added,
             Category = cat,
-            QueuePosition = OptionsFor(hash).Position,
-            ForceStart = OptionsFor(hash).ForceStart
+            QueuePosition = options.Position,
+            ForceStart = options.ForceStart,
+            StatusReason = Desktop.TransferStatus.Describe(state, _pausedHashes.ContainsKey(hash) || paused,
+                totalWanted, totalDone, dlSpeed, numPeers, mgr.Settings.MaximumConnections,
+                _engine.ConnectionManager.OpenConnections, _engine.Settings.MaximumConnections,
+                blocked, waiting, _removalPending.ContainsKey(hash))
         };
     }
 

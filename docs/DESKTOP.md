@@ -3,7 +3,8 @@
 The redesigned desktop is WPF, not a WebView2 portal. It talks directly to
 MonoTorrent and the runtime services. The browser WebUI and qBittorrent API
 remain separate remote-management interfaces; no WebUI login is needed locally.
-The current v2.2.1 release adds full x64 and experimental ARM64 installers,
+The current v2.2.2 release adds repaired queue ranks, download peer headroom and
+live transfer diagnosis to the full x64/experimental ARM64 installers,
 profile preservation/import and pause-first bulk removal. See [INSTALL.md](INSTALL.md).
 
 ## Transfer Workspace
@@ -49,6 +50,9 @@ or file deletion. Disk deletion stays serial. Cancel still finishes stopping the
 selected set, but prevents further deletions; untouched items remain paused after
 restart. Resume/force-start requests are rejected while targets are pending.
 Periodic removal saves do not rewrite every remaining torrent's resume cache.
+Remaining queue ranks compact once after the batch, including Cancel/partial
+failure. A new torrent appends to the live library, not the lifetime-added count.
+Startup also repairs gaps from older versions without changing relative order.
 
 ## Adding and Inspecting
 
@@ -61,6 +65,11 @@ and persistent priority selection with an explicit Apply button. Edit trackers
 replaces the selected public torrent's URLs; private-torrent replacement is
 blocked. Peer and tracker statistics are snapshots; Refresh details fetches a fresh view. Multi-selection
 clears the single-torrent inspector to avoid ambiguous file edits.
+The selected torrent's waiting explanation updates with normal polling; hover
+Status for the same explanation. The status bar shows global connected peers /
+limit. Peer/seed counts in the main table describe connected peers, not the entire
+swarm. Trackers shows Unknown until scrape counts are available. Refresh details
+to investigate tracker failures; no connected peers does not prove no seeders.
 
 Category edits validate unique names, absolute paths and non-negative limits.
 Saving a renamed category updates its assigned torrent labels; removing a
@@ -75,6 +84,24 @@ in the Transfers/context menu to move a selection up/down/top/bottom, then sort
 by Queue # to view the order. Manually paused torrents are not resumed by the
 queue. Force start bypasses queue caps, not the native VPN/disk guard; Pause
 also clears force start. Return to managed queue removes the override.
+Paused torrents' retained peer sockets are closed on the next scheduler pass;
+this frees the global budget without resuming them. Metadata/hash-fetching
+pauses stop the transfer because the library's pause operation ignores those modes.
+Downloads are admitted before ordinary seeds when the total cap is scarce;
+position order applies within each class. Forced torrents retain precedence.
+Queue rank is a library ordering number, not the number of active jobs ahead.
+
+Settings > Connections and discovery includes **Download connection reserve**:
+0-90%, default 25%, with 0 disabling this policy. While eligible downloads or
+metadata transfers are active, ordinary seeds share the remaining global peer
+budget. Excess seeds wait automatically, even if active-torrent queueing is off.
+Over-budget seeds reconnect once when their effective cap changes; stop work is
+bounded to eight workers, then new starts are admitted. Caps restore when no
+downloads are eligible. User connection overrides are preserved and lower caps
+are honored. Forced seeds retain their controls and count against the ordinary
+seed budget; forced work can consume download headroom. This is not a hard
+per-download reservation or proof that available peers will send data. Review
+private-tracker seeding requirements before enabling policies that queue seeds.
 
 Torrent speed limits applies download/upload KiB/s limits to a selection;
 0 is unlimited. Global limits still apply. Bandwidth schedules override global

@@ -308,6 +308,7 @@ namespace Controllarr.Core.Server
                     ["num_leech"] = t.NumPeers,
                     ["ratio"] = t.Ratio,
                     ["state"] = MapState(t),
+                    ["status_reason"] = t.StatusReason,
                     ["category"] = cat ?? "",
                     ["added_on"] = new DateTimeOffset(t.AddedDate).ToUnixTimeSeconds(),
                     ["completion_on"] = t.Progress >= 0.999f
@@ -732,6 +733,8 @@ namespace Controllarr.Core.Server
                     ["dht_nodes"] = 0,
                     ["listen_port"] = stats.ListenPort,
                     ["torrent_count"] = all.Length,
+                    ["connected_peers"] = stats.NumPeersConnected,
+                    ["connection_limit"] = stats.ConnectionLimit,
                     ["downloading_count"] = all.Count(t => t.State == TorrentState.Downloading),
                     ["seeding_count"] = all.Count(t => t.State == TorrentState.Seeding),
                     ["paused_count"] = all.Count(t => t.Paused),
@@ -803,11 +806,20 @@ namespace Controllarr.Core.Server
                 var incoming = JsonSerializer.Deserialize<Settings>(body, JsonOpts);
                 if (incoming == null)
                     return Results.BadRequest("Invalid settings JSON");
-                try { Networking.TorrentNetworkPolicy.Validate(incoming); }
+                try
+                {
+                    Networking.TorrentNetworkPolicy.Validate(incoming);
+                    if (incoming.TorrentQueueing.MaxActiveDownloads < 0 || incoming.TorrentQueueing.MaxActiveSeeds < 0 || incoming.TorrentQueueing.MaxActiveTotal < 0 ||
+                        incoming.GlobalDownloadKBps is < 0 or > 1000000 || incoming.GlobalUploadKBps is < 0 or > 1000000)
+                        throw new ArgumentException("Queue limits must be nonnegative; speed limits must be 0-1000000 KiB/s.");
+                }
                 catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
                 store.ReplaceSettings(incoming);
                 await engine.ApplyAdvancedSettingsAsync(incoming);
+                engine.ApplyTuning(incoming.ConnectionLimits.GlobalMaxConnections, incoming.PeerDiscovery.DhtEnabled, incoming.PeerDiscovery.LsdEnabled);
+                engine.ConfigureQueue(incoming.TorrentQueueing);
+                engine.SetRateLimits(incoming.GlobalDownloadKBps, incoming.GlobalUploadKBps);
                 logger.Info("API", "Settings updated via API");
 
                 // Apply a newly-set preferred listen port to the live engine so
@@ -1077,6 +1089,7 @@ namespace Controllarr.Core.Server
                 ["ratio"] = t.Ratio,
                 ["eta"] = CalculateEta(t),
                 ["state"] = MapState(t),
+                ["status_reason"] = t.StatusReason,
                 ["category"] = cat ?? "",
                 ["save_path"] = t.SavePath,
                 ["added_on"] = new DateTimeOffset(t.AddedDate).ToUnixTimeSeconds(),

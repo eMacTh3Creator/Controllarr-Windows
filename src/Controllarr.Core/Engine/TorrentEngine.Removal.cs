@@ -79,7 +79,12 @@ public sealed partial class TorrentEngine
         {
             foreach (string hash in targets) _removalPending.TryRemove(hash, out _);
             // Unprocessed/failed targets remain paused, including after Cancel or restart.
-            try { await SaveEngineStateAsync(checkpointResume: false).ConfigureAwait(false); }
+            try
+            {
+                // Compact once per batch, including partial/cancelled batches, not per deletion.
+                CompactQueuePositions();
+                await SaveEngineStateAsync(checkpointResume: false).ConfigureAwait(false);
+            }
             finally { InvalidateStats(); _queueGate.Release(); }
         }
     }
@@ -92,12 +97,15 @@ public sealed partial class TorrentEngine
         try
         {
             await _engine.RemoveAsync(manager, deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly).ConfigureAwait(false);
-            _managersByHash.TryRemove(hash, out _);
+            lock (_queueOrderLock)
+            {
+                _managersByHash.TryRemove(hash, out _);
+                _options.TryRemove(hash, out _);
+            }
             _categories.TryRemove(hash, out _);
             _addedDates.TryRemove(hash, out _);
             _pausedHashes.TryRemove(hash, out _);
             _queuedHashes.TryRemove(hash, out _);
-            _options.TryRemove(hash, out _);
             _removalPending.TryRemove(hash, out _);
             lock (_filteredLock) _filteredHashes.Remove(hash);
             InvalidateStats();

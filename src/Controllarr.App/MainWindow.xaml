@@ -158,6 +158,7 @@
                         <TextBlock Text="{Binding DownloadSpeedFormatted, StringFormat=Down {0}}" Foreground="{StaticResource SuccessBrush}" Margin="12,0"/>
                         <TextBlock Text="{Binding UploadSpeedFormatted, StringFormat=Up {0}}" Foreground="{StaticResource AccentLightBrush}" Margin="12,0"/>
                         <TextBlock Text="{Binding TrayListenPort, StringFormat=Port {0}}" Margin="12,0"/>
+                        <TextBlock Text="{Binding ConnectionUsageText}" Margin="12,0" ToolTip="Connected peers across all torrents / global connection limit"/>
                         <TextBlock Text="{Binding VpnStatusText}" Margin="12,0"/>
                     </StackPanel>
                 </Grid>

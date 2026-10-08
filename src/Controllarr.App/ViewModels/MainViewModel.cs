@@ -246,6 +246,9 @@ namespace Controllarr.App.ViewModels
         public string UploadSpeedFormatted =>
             FormatSpeed(SessionStats?.UploadRate ?? 0);
 
+        public string ConnectionUsageText => SessionStats.ConnectionLimit > 0
+            ? $"Peers {SessionStats.NumPeersConnected}/{SessionStats.ConnectionLimit}" : "Peers: waiting";
+
         public bool VpnConnected =>
             VpnStatus?.IsConnected ?? false;
 
@@ -467,10 +470,10 @@ namespace Controllarr.App.ViewModels
                     await Task.Run(() =>
                     {
                         _engine.DefaultSavePath = saved.DefaultSavePath;
+                        _engine.ApplyAdvancedSettingsAsync(saved).GetAwaiter().GetResult();
                         _engine.ApplyTuning(saved.ConnectionLimits.GlobalMaxConnections, saved.PeerDiscovery.DhtEnabled, saved.PeerDiscovery.LsdEnabled);
                         _engine.ConfigureQueue(saved.TorrentQueueing);
                         _engine.SetRateLimits(saved.GlobalDownloadKBps, saved.GlobalUploadKBps);
-                        _engine.ApplyAdvancedSettingsAsync(saved).GetAwaiter().GetResult();
                     });
                 _settingsUserModified = false;
                 _logger.Info("UI", "Settings saved");
@@ -1277,7 +1280,8 @@ namespace Controllarr.App.ViewModels
             // Gather all data off the UI thread
             var settings = _store.GetSettings();
             _engine.ConfigureQueue(settings.TorrentQueueing);
-            await _engine.TickQueueAsync(DesktopTransferAllowed);
+            await _engine.TickQueueAsync(DesktopTransferAllowed, _diskSpaceMonitor?.Snapshot().IsPaused == true
+                ? "Transfers blocked: low disk space; check the Disk monitor." : null);
             await _engine.CheckpointIfDueAsync();
             _engine.ApplyPendingFileFilters();
             var torrentStats = _engine.PollStats();
@@ -1341,6 +1345,7 @@ namespace Controllarr.App.ViewModels
                 SessionStats = sessionStats;
                 OnPropertyChanged(nameof(DownloadSpeedFormatted));
                 OnPropertyChanged(nameof(UploadSpeedFormatted));
+                OnPropertyChanged(nameof(ConnectionUsageText));
 
                 // Categories (only refresh if user hasn't modified)
                 if (!_categoriesUserModified && SelectedTab != "Categories")

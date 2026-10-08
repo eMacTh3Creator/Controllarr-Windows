@@ -234,6 +234,8 @@ function normTorrent(t) {
     dlspeed: num(t.dlspeed),
     upspeed: num(t.upspeed),
     state: t.state ?? 'unknown',
+    statusReason: t.status_reason ?? '',
+    queuePosition: num(t.priority),
     savePath: t.save_path ?? '',
     category: t.category ?? '',
     addedOn: num(t.added_on),
@@ -256,6 +258,8 @@ function normStats(s) {
     dhtNodes: num(s.dht_nodes),
     listenPort: num(s.listen_port),
     torrentCount: num(s.torrent_count),
+    connectedPeers: num(s.connected_peers),
+    connectionLimit: num(s.connection_limit),
     downloadingCount: num(s.downloading_count),
     seedingCount: num(s.seeding_count),
     pausedCount: num(s.paused_count),
@@ -400,6 +404,7 @@ function normTracker(t) {
     numDownloaded: t.NumDownloaded,
     message: t.Message ?? '',
     status: t.Status,
+    hasScrapeInfo: !!t.HasScrapeInfo,
   }
 }
 
@@ -443,6 +448,13 @@ function normSettings(s) {
     globalMaxSeedingTimeMinutes: s.global_max_seeding_time_minutes ?? null,
     seedLimitAction: s.seed_limit_action ?? 'pause',
     minimumSeedTimeMinutes: s.minimum_seed_time_minutes ?? 60,
+    globalMaxConnections: s.connection_limits?.global_max_connections ?? 200,
+    maxConnectionsPerTorrent: s.connection_limits?.max_connections_per_torrent ?? 60,
+    downloadReservePercent: s.connection_limits?.download_reserve_percent ?? 25,
+    queueEnabled: s.torrent_queueing?.enabled ?? false,
+    maxActiveDownloads: s.torrent_queueing?.max_active_downloads ?? 5,
+    maxActiveSeeds: s.torrent_queueing?.max_active_seeds ?? 5,
+    maxActiveTotal: s.torrent_queueing?.max_active_total ?? 10,
     healthStallMinutes: s.health_stall_minutes ?? 30,
     healthReannounceOnStall: s.health_reannounce_on_stall ?? true,
     recoveryRules: Array.isArray(s.recovery_rules) ? s.recovery_rules.map(normRecoveryRule) : [],
@@ -524,6 +536,19 @@ function settingsToPayload(s) {
     global_max_seeding_time_minutes: s.globalMaxSeedingTimeMinutes,
     seed_limit_action: s.seedLimitAction,
     minimum_seed_time_minutes: int(s.minimumSeedTimeMinutes),
+    connection_limits: {
+      ...(s._raw?.connection_limits ?? {}),
+      global_max_connections: int(s.globalMaxConnections),
+      max_connections_per_torrent: int(s.maxConnectionsPerTorrent),
+      download_reserve_percent: int(s.downloadReservePercent),
+    },
+    torrent_queueing: {
+      ...(s._raw?.torrent_queueing ?? {}),
+      enabled: !!s.queueEnabled,
+      max_active_downloads: int(s.maxActiveDownloads),
+      max_active_seeds: int(s.maxActiveSeeds),
+      max_active_total: int(s.maxActiveTotal),
+    },
     health_stall_minutes: int(s.healthStallMinutes),
     health_reannounce_on_stall: !!s.healthReannounceOnStall,
     recovery_rules: s.recoveryRules.map((r) => ({
@@ -1343,6 +1368,7 @@ function renderHome() {
   const pills = []
   if (s) {
     pills.push(pill(`Port ${s.listenPort}`, 'blue'))
+    pills.push(pill(`Peers ${s.connectedPeers}/${s.connectionLimit}`, s.connectedPeers >= s.connectionLimit ? 'amber' : 'neutral'))
     pills.push(pill(`${s.downloadingCount} downloading`, s.downloadingCount > 0 ? 'blue' : 'neutral'))
     pills.push(pill(`${s.seedingCount} seeding`, s.seedingCount > 0 ? 'green' : 'neutral'))
     pills.push(pill(`${s.pausedCount} paused`, s.pausedCount > 0 ? 'amber' : 'neutral'))
@@ -1595,10 +1621,10 @@ function renderTorrentTable(torrents) {
       el('td', { class: 'mono-cell' }, [
         `↓ ${fmtRate(t.dlspeed)}`, el('br'), `↑ ${fmtRate(t.upspeed)}`,
       ]),
-      el('td', { class: 'mono-cell' }, [`${t.numSeeds}S / ${t.numLeechs}L`]),
+      el('td', { class: 'mono-cell', title: 'Connected peers, not the whole swarm' }, [`${t.numLeechs} peers (${t.numSeeds} seeds)`]),
       el('td', { class: 'mono-cell' }, [t.ratio.toFixed(2)]),
       el('td', {}, [fmtETA(t.eta)]),
-      el('td', {}, [pill(t.state, stateTone(t.state))]),
+      el('td', { title: t.statusReason }, [pill(t.state, stateTone(t.state)), el('div', { class: 'subtle-cell' }, [`Queue #${t.queuePosition}`])]),
       el('td', {}, [actions]),
     ])
   })
@@ -1627,7 +1653,7 @@ function renderTorrentDetail() {
   return el('div', { class: 'form-panel', style: { marginTop: '4px' } }, [
     el('div', { class: 'form-panel-header' }, [
       el('h3', {}, [(t && t.name) || '(fetching metadata…)']),
-      el('p', {}, ['Inspect files, trackers, and peers. Refreshes every 3 seconds.']),
+      el('p', {}, [t?.statusReason || 'Inspect files, trackers, and peers. Refreshes every 3 seconds.']),
     ]),
     tabRow,
     state.detail.error ? el('div', { class: 'banner error detail-error' }, [state.detail.error]) : null,
@@ -1684,9 +1710,9 @@ function renderTrackersDetail() {
     el('td', { class: 'primary-cell', style: { wordBreak: 'break-all' } }, [tr.url || '—']),
     el('td', {}, [pill(trackerStatusText(tr.status), trackerStatusTone(tr.status))]),
     el('td', { class: 'mono-cell' }, [tr.tier ?? '—']),
-    el('td', { class: 'mono-cell' }, [tr.numSeeds ?? '—']),
-    el('td', { class: 'mono-cell' }, [tr.numPeers ?? '—']),
-    el('td', { class: 'mono-cell' }, [tr.numLeechers ?? '—']),
+    el('td', { class: 'mono-cell' }, [tr.hasScrapeInfo ? tr.numSeeds : 'Unknown']),
+    el('td', { class: 'mono-cell' }, [tr.hasScrapeInfo ? tr.numPeers : 'Unknown']),
+    el('td', { class: 'mono-cell' }, [tr.hasScrapeInfo ? tr.numLeechers : 'Unknown']),
     el('td', {}, [tr.message || '—']),
   ]))
 
@@ -1926,6 +1952,19 @@ function renderSettings() {
       el('input', { value: s.defaultSavePath, placeholder: 'C:\\Users\\you\\Downloads\\Controllarr', oninput: (e) => { s.defaultSavePath = e.currentTarget.value; state.settingsDirty = true } })]),
   ])
 
+  const connectionPanel = settingsPanel('Connections & queue', 'Keep a bounded peer budget. Downloads take priority over ordinary seeds when active slots are scarce. A 0% reserve disables download headroom.', [
+    el('div', { class: 'form-grid' }, [
+      field('Global peer limit (1-10000)', numberInput(s.globalMaxConnections, { min: 1, max: 10000 }, (v) => patchSettings({ globalMaxConnections: v }))),
+      field('Default peers per torrent (1-10000)', numberInput(s.maxConnectionsPerTorrent, { min: 1, max: 10000 }, (v) => patchSettings({ maxConnectionsPerTorrent: v }))),
+      field('Download connection reserve (0-90%)', numberInput(s.downloadReservePercent, { min: 0, max: 90 }, (v) => patchSettings({ downloadReservePercent: v }))),
+      toggleField('Enable active-torrent queue', s.queueEnabled, (v) => patchSettings({ queueEnabled: v })),
+      field('Maximum active downloads', numberInput(s.maxActiveDownloads, { min: 0 }, (v) => patchSettings({ maxActiveDownloads: v }))),
+      field('Maximum active seeds', numberInput(s.maxActiveSeeds, { min: 0 }, (v) => patchSettings({ maxActiveSeeds: v }))),
+      field('Maximum active total', numberInput(s.maxActiveTotal, { min: 0 }, (v) => patchSettings({ maxActiveTotal: v }))),
+    ]),
+    el('p', {}, ['When downloads are active, ordinary seeds share the remaining peer budget; extra seeds wait even if active-torrent queueing is off. Forced seeds retain their caps. A 0 active limit starts no ordinary torrents in that class. No policy can create missing seeders.']),
+  ])
+
   const seedSelect = el('select', { value: s.seedLimitAction, onChange: (e) => patchSettings({ seedLimitAction: e.currentTarget.value }) }, [
     el('option', { value: 'pause' }, ['Pause']),
     el('option', { value: 'remove_keep_files' }, ['Remove (keep files)']),
@@ -1979,7 +2018,7 @@ function renderSettings() {
       ]),
       el('div', { class: 'section-meta' }, [state.settingsDirty ? 'Unsaved changes' : 'In sync']),
     ]),
-    el('div', { class: 'settings-grid' }, [webuiPanel, portPanel, storagePanel, seedingPanel, healthPanel]),
+    el('div', { class: 'settings-grid' }, [webuiPanel, portPanel, storagePanel, connectionPanel, seedingPanel, healthPanel]),
     renderRecoveryRulesSection(s),
     renderVpnSection(s),
     renderDiskSection(s),

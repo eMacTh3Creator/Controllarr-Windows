@@ -18,7 +18,7 @@
 
 Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Current release:** [v2.2.1](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.1) adds full x64/ARM64 installers with profile preservation/import and faster bulk removal. The native WPF desktop pauses the whole selection first, overlaps bounded stop operations, and keeps disk deletion controlled and cancellable. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
+**Current release:** [v2.2.2](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.2) repairs stale queue positions and reserves peer-connection headroom for downloads. It adds live waiting explanations and connection usage to the native WPF desktop and remote WebUI/API, while retaining profile-preserving x64/ARM64 installers and pause-first bulk removal. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
 
 **Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
 
@@ -26,10 +26,10 @@ Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https:
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
-| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
-| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/Controllarr-2.2.1-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
+| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
+| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
-Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.1/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
+Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -48,7 +48,9 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Native Home dashboard** — session metric cards, status pills, quick actions, and a most-active-transfers list; Transfers is now the default workspace
 - **Graphite and teal desktop theme** — compact Windows controls, keyboard navigation and resizable transfer/details panes
 - **Per-torrent detail** — persistent file priorities, editable public-torrent trackers and refreshable peer snapshots
-- **Managed active queue** — separate download/seed/total caps, bulk position changes and explicit force-start; queued state is reflected in the qBittorrent API
+- **Aware active queue** - contiguous live positions after removal/restart, download-first admission under total caps, separate download/seed limits and explicit force-start; queued state and waiting reasons are reflected in the API
+- **Download connection headroom** - configurable reserve (25% by default, 0 disables it); ordinary seeds share the remaining peer budget while downloads need connections, without raising the global limit
+- **Transfer diagnosis** - global used/limit counter and selected-torrent reasons for queue caps, VPN/disk guards, metadata waits, peer-budget exhaustion and connected-but-idle peers; unavailable tracker scrape counts display Unknown, not zero seeders
 - **Speed controls** — global and multi-selected per-torrent limits, with scheduled limits falling back to the global values
 - **Advanced torrent controls** - bulk connection budgets, upload slots and persistent sequential piece selection; settings supply per-torrent defaults and PEX policy
 - **File streaming preview** - a seek-aware, temporary loopback URL for a running torrent; no full-file memory buffering and no public media listener
@@ -107,6 +109,7 @@ The bottom status bar displays:
 - Bulk-operation progress and cancellation control
 - Current listen port
 - Download / upload speeds (live)
+- Connected peers / global connection limit
 - VPN status pill (Connected / Disconnected / Kill Switch Engaged)
 - Normal minimize keeps the taskbar button; closing to tray is configurable in Settings
 
@@ -138,7 +141,7 @@ Extended endpoints at `/api/controllarr/*` for full access to all services:
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/controllarr/stats` | Session stats (native format) |
+| `GET /api/controllarr/stats` | Session stats, including `connected_peers` / `connection_limit` |
 | `POST /api/controllarr/port/cycle` | Force listen port cycle |
 | `GET/POST /api/controllarr/categories` | Extended category management (complete path, extract archives, blocked extensions, ratio/time overrides) |
 | `GET/POST /api/controllarr/settings` | Full settings read/write |
@@ -188,6 +191,8 @@ Settings are stored in `%AppData%\Controllarr\state.json` and editable from the 
 | `disk_space_minimum_gb` | *disabled* | Minimum free GB before auto-pause |
 | `arr_re_search_after_hours` | `6` | Hours before triggering *arr re-search |
 | `torrent_queueing` | *disabled* | Active download/seed/total caps; 0 allows none in that class |
+| `connection_limits.global_max_connections` | `200` | Bounded shared peer limit; native/browser saves apply live |
+| `connection_limits.download_reserve_percent` | `25` | Download headroom while downloads are active; 0 disables seed budgeting |
 | `global_download_kbps` / `global_upload_kbps` | `0` | Global KiB/s limits; 0 is unlimited |
 | `rss_feeds` | `[]` | Feed rules; auto-download is opt-in |
 | `watch_folder` | *disabled* | Absolute folder containing stable .torrent files to import |

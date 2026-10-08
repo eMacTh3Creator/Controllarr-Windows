@@ -42,6 +42,8 @@ public sealed class TorrentNetworkPolicy : IDisposable
 
     public static void Validate(Settings settings)
     {
+        if (settings.TorrentNetwork == null || settings.ConnectionLimits == null || settings.PeerDiscovery == null || settings.TorrentQueueing == null)
+            throw new ArgumentException("Network, connection, discovery and queue settings cannot be null.");
         var n = settings.TorrentNetwork;
         if (Encoding.UTF8.GetByteCount(n.ProxyUsername) > 255 || Encoding.UTF8.GetByteCount(n.ProxyPassword) > 255 ||
             (!string.IsNullOrEmpty(n.ProxyPassword) && string.IsNullOrEmpty(n.ProxyUsername)))
@@ -53,6 +55,8 @@ public sealed class TorrentNetworkPolicy : IDisposable
         if (settings.VpnMonitorIntervalSeconds is < 1 or > 300) throw new ArgumentException("VPN monitor interval must be 1-300 seconds.");
         if (settings.ConnectionLimits.MaxConnectionsPerTorrent is < 1 or > 10000 || settings.ConnectionLimits.GlobalMaxUploadSlots is < 2 or > 1000)
             throw new ArgumentException("Per-torrent connections must be 1-10000; upload slots must be 2-1000.");
+        if (settings.ConnectionLimits.GlobalMaxConnections is < 1 or > 10000 || settings.ConnectionLimits.DownloadReservePercent is < 0 or > 90)
+            throw new ArgumentException("Global connections must be 1-10000; download connection reserve must be 0-90% (0 disables it).");
     }
 
     public static NetworkAdapterChoice[] AvailableAdapters() => new[] { new NetworkAdapterChoice("", "Automatic VPN detection") }

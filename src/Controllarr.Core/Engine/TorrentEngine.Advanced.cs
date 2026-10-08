@@ -13,6 +13,8 @@ public sealed partial class TorrentEngine
     private int _defaultTorrentConnections = 60;
     private int _defaultUploadSlots = 8;
     private bool _pexEnabled = true;
+    private int _downloadReservePercent = 25;
+    private IReadOnlyDictionary<string, int> _seedConnectionCaps = new Dictionary<string, int>();
     private string? _advancedKey;
 
     public async Task ApplyAdvancedSettingsAsync(Settings settings)
@@ -30,7 +32,7 @@ public sealed partial class TorrentEngine
             }
             NetworkPolicy.RefreshAdapter();
             if (!NetworkPolicy.Allowed) await TickQueueAsync(false).ConfigureAwait(false);
-            string key = $"{settings.TorrentNetwork.Encryption}:{settings.ConnectionLimits.MaxConnectionsPerTorrent}:{settings.ConnectionLimits.GlobalMaxUploadSlots}:{settings.PeerDiscovery.PexEnabled}";
+            string key = $"{settings.TorrentNetwork.Encryption}:{settings.ConnectionLimits.MaxConnectionsPerTorrent}:{settings.ConnectionLimits.GlobalMaxUploadSlots}:{settings.PeerDiscovery.PexEnabled}:{settings.ConnectionLimits.DownloadReservePercent}";
             if (_advancedKey == key) return;
             bool encryptionChanged;
             await _settingsGate.WaitAsync().ConfigureAwait(false);
@@ -57,6 +59,7 @@ public sealed partial class TorrentEngine
                 // Legacy global_max_upload_slots is a per-torrent default: MonoTorrent has no aggregate slot limiter.
                 _defaultUploadSlots = settings.ConnectionLimits.GlobalMaxUploadSlots;
                 _pexEnabled = settings.PeerDiscovery.PexEnabled;
+                _downloadReservePercent = settings.ConnectionLimits.DownloadReservePercent;
                 foreach (var pair in _managersByHash) await ApplyTorrentOptionsAsync(pair.Value, OptionsFor(pair.Key)).ConfigureAwait(false);
             }
             finally { _queueGate.Release(); }

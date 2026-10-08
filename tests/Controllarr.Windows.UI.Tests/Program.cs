@@ -57,6 +57,17 @@ internal static class Program
         Check(grid.Items.Count == 5000 && grid.SelectedItems.Count == 0 && vm.Desktop.SelectedRows.Count == 0,
             "category filtering never leaves hidden torrents selected");
         Check(!vm.Desktop.RemoveSelectedCommand.CanExecute(null), "destructive commands disabled without selection/runtime");
+        grid.SelectedItems.Add(grid.Items[0]);
+        string hash = vm.Desktop.SelectedRows[0].InfoHash;
+        vm.Desktop.ApplySnapshot(changed.Select(s => new TorrentStats
+        {
+            InfoHash = s.InfoHash, Name = s.Name, Category = s.Category, State = s.State,
+            TotalWanted = s.TotalWanted, TotalDone = s.TotalDone, Progress = s.Progress,
+            StatusReason = s.InfoHash == hash ? "Global connection limit reached (200/200)" : "Seeding"
+        }).ToArray(), new[] { "Movies", "TV" });
+        Layout(window);
+        Check(vm.Desktop.SelectedRow?.StatusReason.Contains("200/200") == true && ContainsText(workspace, "Global connection limit reached (200/200)"),
+            "selected-torrent connection diagnosis updates visibly without losing selection");
         string? oldProfile = Environment.GetEnvironmentVariable(Controllarr.Core.Persistence.ProfilePaths.EnvironmentVariable);
         string layoutProfile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ControllarrLayoutTests", Guid.NewGuid().ToString("N"));
         Environment.SetEnvironmentVariable(Controllarr.Core.Persistence.ProfilePaths.EnvironmentVariable, layoutProfile);
@@ -98,5 +109,12 @@ internal static class Program
         int count = node is DataGridRow ? 1 : 0;
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++) count += CountRows(VisualTreeHelper.GetChild(node, i));
         return count;
+    }
+    private static bool ContainsText(DependencyObject node, string text)
+    {
+        if (node is TextBlock block && block.Text == text) return true;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+            if (ContainsText(VisualTreeHelper.GetChild(node, i), text)) return true;
+        return false;
     }
 }
