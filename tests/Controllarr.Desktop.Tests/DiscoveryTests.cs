@@ -219,14 +219,14 @@ internal static class DiscoveryTests
         check(merged == added && engine.PollStats().Length == 1 && engine.GetTrackers(added)!.Length == 1,
             "re-adding a magnet merges its source tracker without duplicating the torrent");
         await WaitAsync(() => engine.GetStats(added)?.Progress >= 1, "Magnet did not acquire metadata and transfer the controlled payload");
-        check(File.ReadAllBytes(Path.Combine(download, "metadata-fixture.bin")).SequenceEqual(payload) && tracker.Requests > 0,
-            "real loopback HTTP tracker + peer retrieves magnet metadata and a hash-verified payload end to end");
         await engine.Pause(added);
         check(!engine.RequestReannounce(added) && !await engine.Reannounce(added), "automatic/manual rediscovery never resumes a manually paused torrent");
         await engine.AddMagnet(magnet + "&tr=" + Uri.EscapeDataString(tracker.Url));
         check(engine.GetStats(added)!.Paused && engine.GetTrackers(added)!.Length == 1, "duplicate tracker merge preserves pause and deduplicates existing URLs");
         await engine.SaveEngineStateAsync();
         await engine.Shutdown();
+        check(File.ReadAllBytes(Path.Combine(download, "metadata-fixture.bin")).SequenceEqual(payload) && tracker.Requests > 0,
+            "real loopback HTTP tracker + peer retrieves magnet metadata and a hash-verified payload end to end");
         using var restored = new TorrentEngine(download, Path.Combine(root, "download-resume"), FreePort(), settings);
         check(restored.GetTrackers(added)!.Length == 1 && restored.GetStats(added)!.Paused, "merged trackers and pause survive restart");
         var groupedSettings = new Settings { CreateTorrentSubfolders = true,
@@ -240,12 +240,13 @@ internal static class DiscoveryTests
             string groupedHash = await grouped.AddMagnet(magnet + "&tr=" + Uri.EscapeDataString(tracker.Url));
             groupedPath = Path.Combine(groupedDownload, StoragePaths.TorrentFolder(null, groupedHash));
             await WaitAsync(() => grouped.GetStats(groupedHash)?.Progress >= 1, "Grouped magnet did not retrieve the controlled payload");
-            check(StoragePaths.Equal(grouped.GetStats(groupedHash)!.SavePath, groupedPath)
+            bool ownedPath = StoragePaths.Equal(grouped.GetStats(groupedHash)!.SavePath, groupedPath);
+            await grouped.Pause(groupedHash);
+            await grouped.Shutdown();
+            check(ownedPath
                 && File.ReadAllBytes(Path.Combine(groupedPath, "metadata-fixture.bin")).SequenceEqual(payload)
                 && !File.Exists(Path.Combine(groupedDownload, "metadata-fixture.bin")),
                 "nameless magnet metadata and verified payload download stay inside their captured torrent folder");
-            await grouped.Pause(groupedHash);
-            await grouped.Shutdown();
         }
         using (var groupedRestored = new TorrentEngine(groupedDownload, groupedResume, FreePort(), groupedSettings))
         {
@@ -272,6 +273,8 @@ internal static class DiscoveryTests
                     seed = seeder.GetStats(hash), first = first.Requests, second = second.Requests }));
                 throw;
             }
+            // Completion can precede MonoTorrent releasing its Windows file handle.
+            await failover.Shutdown();
             check(first.Requests > 0 && second.Requests > 0 && File.ReadAllBytes(Path.Combine(root, "failover", "metadata-fixture.bin")).SequenceEqual(payload),
                 "a rejected announce fails over within the same tracker tier and retrieves a verified payload");
         }
