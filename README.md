@@ -18,18 +18,20 @@
 
 Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Current release:** [v2.2.2](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.2) repairs stale queue positions and reserves peer-connection headroom for downloads. It adds live waiting explanations and connection usage to the native WPF desktop and remote WebUI/API, while retaining profile-preserving x64/ARM64 installers and pause-first bulk removal. It is not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
+**Current release:** [v2.2.3](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.3) adds VPN-bound DHT, expanded automatic tunnel recognition and tracker/metadata stall repairs. DHT bootstrap DNS and UDP use the enforced adapter; private torrents exclude DHT, and SOCKS5 still disables it. It retains download peer headroom, live queue diagnosis and profile-preserving x64/ARM64 installers. The desktop is native WPF, not an embedded WebUI portal. See the [project website](https://emacth3creator.github.io/Controllarr-Windows/), [desktop guide](docs/DESKTOP.md), [networking guide](docs/NETWORKING.md) and [VM validation report](docs/NATIVE_DESKTOP_VALIDATION.md). Windows and macOS use different torrent engines.
 
 **Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
+
+**Reliability audit:** the [torrent stall audit](docs/STALL_AUDIT.md) documents shipped tracker failover/refresh, VPN DNS, metadata health/recovery, selected-file queue completion and intake repairs. Remaining work includes synchronous post-processing/*arr I/O, metadata-slot rotation, download fairness and real-provider VPN validation.
 
 ## Download
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
-| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
-| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
+| **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
+| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
 
-Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
+Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -72,7 +74,8 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Bandwidth scheduler** — time-of-day download/upload rate limiting
 - **DPAPI credential storage** for WebUI/API and SOCKS5 passwords without access/password prompts; *arr API keys remain in the app-state file (`%AppData%\Controllarr\state.json`)
 - **Enforced VPN adapter binding** - source-bound IPv4 torrent sockets pinned to the selected Windows interface; unavailable tunnels block all starts, including API/force-start/queue actions. Torrent DNS uses the adapter's DNS servers without system fallback; LAN WebUI/API listeners remain separate
-- **Explicit networking limits** - VPN/proxy modes block IPv6 fallback; DHT/LSD/router mapping are disabled in protected modes, and SOCKS5 disables UDP trackers/incoming peers. Network topology changes block torrents until restart. Keep the provider's kill switch enabled as defense in depth; the app cannot override its LAN firewall rules
+- **VPN-bound DHT** - bootstrap DNS and DHT datagrams use policy-owned sockets, including blocklist filtering, bounded queues and cache recovery. Automatic recognition includes PIA, NordVPN/NordLynx and popular generic tunnels; ambiguous matches require a selection
+- **Explicit networking limits** - VPN/proxy modes block IPv6 fallback; LSD/router mapping stay disabled in protected modes. SOCKS5 disables DHT, UDP trackers and incoming peers. Network topology changes block torrents until restart. Keep the provider's kill switch enabled; the app cannot override its LAN firewall rules
 - **Disk-space-aware auto-pause** — monitors free space, pauses downloads when below threshold, and exposes operator recheck in the UI
 - ***arr re-search integration** — proactive Sonarr / Radarr callbacks when torrents stall beyond a configurable threshold
 - **Session auth with expiry** — 1-hour token TTL, CORS support, cookie-based middleware
@@ -339,11 +342,12 @@ Open `Controllarr.sln` in Visual Studio 2022. Set `Controllarr.App` as the start
 
 ## VPN Setup (Windows)
 
-Controllarr detects VPN adapters by scanning network interfaces for adapters with descriptions matching:
+Controllarr recognizes active IPv4 tunnel names/descriptions including:
 
 - `TAP-Windows` / `TAP-Win32` (OpenVPN)
 - `WireGuard`
 - `Wintun` (WireGuard kernel driver)
+- PIA / Private Internet Access, NordVPN / NordLynx, Proton VPN, Mullvad, Surfshark, ExpressVPN, CyberGhost, Windscribe and IVPN
 - Or any adapter whose name starts with the configured `vpn_interface_prefix`
 
 When VPN is enabled in settings:
@@ -352,7 +356,7 @@ When VPN is enabled in settings:
 2. **VPN unavailable** - policy-owned sockets close and all torrent starts are blocked, including API and force-start actions. Legacy bind/kill-switch flags cannot weaken enabled enforcement.
 3. **VPN reconnects** - eligible queued torrents recover; manually paused torrents stay paused.
 
-Select your actual VPN tunnel, not Ethernet/Wi-Fi. VPN/proxy/blocklist topology changes require an app restart. Protected IPv6, DHT/LSD and router mapping are disabled; use tracker-backed torrents. The LAN WebUI/API stays separate, but provider and Windows firewall rules still apply. Keep the provider's kill switch enabled as defense in depth. This is app-level socket enforcement, not an OS-wide leak guarantee; read [NETWORKING.md](docs/NETWORKING.md).
+Select your actual VPN tunnel, not Ethernet/Wi-Fi. Automatic detection fails closed if multiple tunnels match; explicit selection is preferred on a multi-VPN machine. Enable DHT in Settings for public trackerless magnets. DHT DNS/UDP are forced through that adapter, while protected IPv6, LSD and router mapping remain disabled. SOCKS5 cannot use DHT. VPN/proxy/blocklist topology changes require restart. LAN WebUI/API stays separate, but provider and Windows firewall rules still apply. Keep the provider's kill switch enabled. This is app-level socket enforcement, not an OS-wide leak guarantee; read [NETWORKING.md](docs/NETWORKING.md).
 
 ---
 
@@ -372,6 +376,7 @@ Select your actual VPN tunnel, not Ethernet/Wi-Fi. VPN/proxy/blocklist topology 
 | [docs/README.md](docs/README.md) | Documentation index and overview |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Day-to-day operations, deployment, and troubleshooting guide |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Performance tuning and large-library guidance |
+| [docs/STALL_AUDIT.md](docs/STALL_AUDIT.md) | Metadata/tracker stall findings, source repairs and remaining work |
 | [docs/V1_5_ROADMAP.md](docs/V1_5_ROADMAP.md) | Roadmap and feature planning |
 | [docs/index.html](docs/index.html) | Project landing page |
 | [Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) | Pre-built binaries and release notes |

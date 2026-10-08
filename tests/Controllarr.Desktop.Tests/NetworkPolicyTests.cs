@@ -34,10 +34,9 @@ internal static class NetworkPolicyTests
             try { await peer.ConnectAsync(); } catch (IOException) { denied = true; }
         check(denied, "real peer factory cannot connect when VPN is unavailable");
         var tracker = factories.CreateTracker(new Uri($"http://127.0.0.1:{trapPort}/announce"))!;
-        var response = await tracker.AnnounceAsync(announce, timeout.Token);
-        check(response.State != TrackerState.Ok && !trap.Pending(), "real HTTP tracker factory fails closed without reaching a listening unbound destination");
+        check(await FailsAsync(tracker, announce, timeout.Token) && !trap.Pending(), "real HTTP tracker factory fails closed without reaching a listening unbound destination");
         var udp = factories.CreateTracker(new Uri("udp://127.0.0.1:9"))!;
-        check((await udp.AnnounceAsync(announce, timeout.Token)).State != TrackerState.Ok, "real UDP tracker factory fails closed");
+        check(await FailsAsync(udp, announce, timeout.Token), "real UDP tracker factory fails closed");
         using (var http = factories.CreateHttpClient())
         {
             denied = false;
@@ -49,7 +48,8 @@ internal static class NetworkPolicyTests
         listener.Start();
         check(listener.LocalEndPoint == null, "incoming peer listener stays closed with no VPN adapter");
         listener.Stop();
-        check(factories.CreateDht().NodeCount == 0 && !factories.CreatePortForwarder().Active, "protected factories disable independent DHT and NAT transports");
+        using (var dht = factories.CreateDht())
+            check(dht is Controllarr.Core.Dht.DhtEngine && !factories.CreatePortForwarder().Active, "VPN factories use policy-controlled DHT while independent NAT stays disabled");
 
         // Use a real guest adapter for socket-option tests only, not as evidence of a VPN tunnel.
         var adapter = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(n => n.OperationalStatus == OperationalStatus.Up &&
@@ -114,7 +114,7 @@ internal static class NetworkPolicyTests
         });
         using (var proxied = await proxyPolicy.ConnectAsync("does-not-resolve.invalid", 80, timeout.Token)) { await handshake; }
         check(requested == "does-not-resolve.invalid", "SOCKS5 forwards destination hostnames for remote DNS without resolving locally");
-        check((await TorrentNetworkFactories.Create(proxyPolicy).CreateTracker(new Uri("udp://127.0.0.1:9"))!.AnnounceAsync(announce, timeout.Token)).State != TrackerState.Ok,
+        check(await FailsAsync(TorrentNetworkFactories.Create(proxyPolicy).CreateTracker(new Uri("udp://127.0.0.1:9"))!, announce, timeout.Token),
             "SOCKS5 mode rejects UDP trackers instead of leaking directly");
         proxyServer.Stop();
         denied = false;
@@ -171,5 +171,11 @@ internal static class NetworkPolicyTests
         var udpTracker = TorrentNetworkFactories.Create(udpPolicy).CreateTracker(new Uri($"udp://127.0.0.1:{((IPEndPoint)udpServer.LocalEndPoint!).Port}"))!;
         check((await udpTracker.AnnounceAsync(announce, timeout.Token)).State == TrackerState.Ok, "policy-owned UDP transport completes a real local BEP15 connect and announce");
         await udpWork;
+    }
+
+    private static async Task<bool> FailsAsync(ITracker tracker, AnnounceRequest request, CancellationToken token)
+    {
+        try { return (await tracker.AnnounceAsync(request, token)).State != TrackerState.Ok; }
+        catch (IOException) { return true; }
     }
 }

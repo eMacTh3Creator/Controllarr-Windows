@@ -94,9 +94,13 @@
                             <TextBox Text="{Binding Settings.ConnectionLimits.GlobalMaxUploadSlots, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Width="120" HorizontalAlignment="Left"/>
                             <TextBlock Text="Watch the status bar's Peers used/limit counter. If full, reduce active seeds or per-torrent connections before raising the global cap. More connections cost CPU, memory and disk work." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,12"/>
                             <CheckBox Content="Enable DHT" IsChecked="{Binding Settings.PeerDiscovery.DhtEnabled}" Margin="0,4"/>
+                            <TextBlock Style="{StaticResource SecondaryText}" Margin="0,4,0,8">
+                                <Run Text="DHT runtime: "/><Run Text="{Binding SessionStats.DhtState, Mode=OneWay}"/>
+                                <Run Text=" | nodes: "/><Run Text="{Binding SessionStats.DhtNodes, Mode=OneWay}"/>
+                            </TextBlock>
                             <CheckBox Content="Enable peer exchange (PEX)" IsChecked="{Binding Settings.PeerDiscovery.PexEnabled}" Margin="0,4"/>
                             <CheckBox Content="Enable local peer discovery (LSD)" IsChecked="{Binding Settings.PeerDiscovery.LsdEnabled}" Margin="0,4"/>
-                            <TextBlock Text="DHT, LSD and router port mapping are disabled while VPN binding, SOCKS5 or a nonempty IP blocklist is active. Use trackers and your provider's forwarded port." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,0"/>
+                            <TextBlock Text="DHT works through the enforced VPN adapter, including tunnel-bound bootstrap DNS. A blocklist also filters DHT nodes. SOCKS5 disables DHT and UDP trackers (UDP ASSOCIATE is not supported). Local discovery and router port mapping stay disabled in protected modes. Private torrents never use DHT. A preferred forwarded port stays fixed during stalls." TextWrapping="Wrap" Style="{StaticResource SecondaryText}" Margin="0,8,0,0"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -242,7 +246,7 @@
                             <ComboBox ItemsSource="{Binding NetworkAdapters}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Settings.VpnInterfaceId, UpdateSourceTrigger=PropertyChanged}"/>
                             <Button Content="Refresh adapters" Command="{Binding RefreshNetworkAdaptersCommand}" HorizontalAlignment="Left" Margin="0,8"/>
                             <TextBlock Text="{Binding TorrentNetworkStatusText}" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}" Margin="0,8"/>
-                            <TextBlock Text="VPN/proxy/blocklist changes stop torrent networking until you quit and reopen the app. A missing adapter never falls back to another. VPN DNS must support TCP port 53; no system-DNS fallback is used." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
+                            <TextBlock Text="PIA, NordLynx/NordVPN, Proton, Mullvad, Surfshark, ExpressVPN and generic OpenVPN/WireGuard/Wintun tunnels are recognized automatically. Multiple active tunnels require an explicit selection. VPN/proxy/blocklist changes require restart; missing adapters never fall back to Ethernet/Wi-Fi. DNS uses bound UDP with TCP fallback; numeric public resolvers are also tried through the tunnel, never system DNS." TextWrapping="Wrap" Style="{StaticResource SecondaryText}"/>
                         </StackPanel>
                     </GroupBox>
 

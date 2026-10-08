@@ -20,7 +20,7 @@
 //     enum name), first_seen/last_updated (ISO 8601 strings), last_progress.
 //   * Log endpoint: id, timestamp (ISO 8601), level (lowercase), source, message.
 //   * File priorities POST expects a JSON map {"<index>":<priority>}.
-//   * There is no /api/controllarr/network endpoint on Windows.
+//   * /api/controllarr/network reports bound DHT and available adapter choices.
 // ============================================================================
 
 'use strict'
@@ -137,6 +137,8 @@ function el(tag, props = {}, children = []) {
     } else node.setAttribute(key, value)
   }
   appendChildren(node, children)
+  // A select cannot retain its requested value until its options exist.
+  if (tag === 'select' && props.value != null) node.value = props.value
   return node
 }
 
@@ -463,6 +465,8 @@ function normSettings(s) {
     vpnKillSwitch: s.vpn_kill_switch ?? true,
     vpnBindInterface: s.vpn_bind_interface ?? true,
     vpnInterfacePrefix: s.vpn_interface_prefix ?? 'TAP',
+    vpnInterfaceId: s.vpn_interface_id ?? '',
+    dhtEnabled: s.peer_discovery?.dht_enabled ?? true,
     vpnMonitorIntervalSeconds: s.vpn_monitor_interval_seconds ?? 5,
     diskSpaceMinimumGB: s.disk_space_minimum_gb ?? null,
     diskSpaceMonitorPath: s.disk_space_monitor_path ?? '',
@@ -573,6 +577,8 @@ function settingsToPayload(s) {
     vpn_kill_switch: !!s.vpnKillSwitch,
     vpn_bind_interface: !!s.vpnBindInterface,
     vpn_interface_prefix: s.vpnInterfacePrefix ?? 'TAP',
+    vpn_interface_id: s.vpnInterfaceId ?? '',
+    peer_discovery: { ...(s._raw?.peer_discovery ?? {}), dht_enabled: !!s.dhtEnabled },
     vpn_monitor_interval_seconds: int(s.vpnMonitorIntervalSeconds),
     disk_space_minimum_gb: s.diskSpaceMinimumGB,
     disk_space_monitor_path: s.diskSpaceMonitorPath ?? '',
@@ -1030,7 +1036,7 @@ async function loadActiveTabData() {
       state.log = (await api.log(500)).sort((a, b) => toEpochSeconds(b.timestamp) - toEpochSeconds(a.timestamp))
       break
     case 'settings':
-      // settings refresh handled in loadAll; nothing live to pull each tick
+      state.network = await getJSON('/api/controllarr/network')
       break
   }
 }
@@ -1933,7 +1939,7 @@ function renderSettings() {
     ]),
   ])
 
-  const portPanel = settingsPanel('Listen port range', 'Set a VPN-forwarded preferred port first; PortWatcher falls back to this range if it goes stale.', [
+  const portPanel = settingsPanel('Listen port range', 'A preferred VPN-forwarded port stays fixed during stalls. Without a preferred port, automatic cycling uses this range; manual cycling is always available.', [
     el('div', { class: 'form-grid' }, [
       optionalPortField('Preferred forwarded port', s.preferredListenPort,
         (enabled) => patchSettings({ preferredListenPort: enabled ? (s.preferredListenPort ?? s.listenPortRangeStart) : null }),
@@ -2102,11 +2108,16 @@ function renderRecoveryRulesSection(s) {
 }
 
 function renderVpnSection(s) {
-  const children = [toggleField('Enable VPN monitoring', s.vpnEnabled, (v) => patchSettings({ vpnEnabled: v }))]
+  const children = [toggleField('Enforce VPN-only torrent traffic', s.vpnEnabled, (v) => patchSettings({ vpnEnabled: v })),
+    toggleField('Enable DHT peer discovery', s.dhtEnabled, (v) => patchSettings({ dhtEnabled: v })),
+    el('p', {}, ['DHT and bootstrap DNS use the forced tunnel adapter when VPN protection is enabled. Private torrents never use DHT. SOCKS5 disables DHT and UDP trackers. Local discovery and router mapping remain disabled in protected modes.'])]
   if (s.vpnEnabled) {
     children.push(el('div', { class: 'form-grid' }, [
-      toggleField('Kill switch (pause all when VPN drops)', s.vpnKillSwitch, (v) => patchSettings({ vpnKillSwitch: v })),
-      toggleField('Bind to VPN interface (prevent leaks)', s.vpnBindInterface, (v) => patchSettings({ vpnBindInterface: v })),
+      field('Forced VPN adapter', el('select', { value: s.vpnInterfaceId, onChange: (e) => patchSettings({ vpnInterfaceId: e.currentTarget.value }) },
+        (state.network?.adapters ?? [{ Id: '', Label: 'Automatic VPN detection' }]).concat(
+          s.vpnInterfaceId && !(state.network?.adapters ?? []).some(a => a.Id === s.vpnInterfaceId)
+            ? [{ Id: s.vpnInterfaceId, Label: `Unavailable saved adapter: ${s.vpnInterfaceId}` }] : [])
+          .map(a => el('option', { value: a.Id }, [a.Label])))),
       field('Interface prefix', el('input', { value: s.vpnInterfacePrefix, placeholder: 'TAP', oninput: (e) => { s.vpnInterfacePrefix = e.currentTarget.value; state.settingsDirty = true } })),
       field('Check interval (seconds)', el('input', { type: 'number', min: 1, max: 60, value: s.vpnMonitorIntervalSeconds, oninput: (e) => { s.vpnMonitorIntervalSeconds = Math.max(1, readNum(e.currentTarget.valueAsNumber, 5)); state.settingsDirty = true } })),
     ]))
@@ -2119,7 +2130,8 @@ function renderVpnSection(s) {
       ].filter(Boolean)))
     }
   }
-  return settingsPanel('VPN protection', 'Detect TAP-Windows / WireGuard / Wintun adapters, engage a kill switch, and bind the engine to the tunnel.', children)
+  if (state.network) children.push(el('p', {}, [`DHT: ${state.network.dht_state} (${state.network.dht_nodes} nodes). ${state.network.restart_required ? 'Restart required: torrent networking is blocked.' : ''}`]))
+  return settingsPanel('VPN protection', 'Automatic detection recognizes PIA, NordVPN/NordLynx and popular OpenVPN/WireGuard/Wintun tunnels. Multiple active tunnels require a selection. Forced binding and fail-closed protection cannot be disabled while VPN enforcement is on. Save and restart after adapter changes. LAN management stays separate.', children)
 }
 
 function renderDiskSection(s) {

@@ -51,13 +51,18 @@ namespace Controllarr.Core.Services
     {
         public float LastProgress { get; set; }
         public DateTime LastChangeTime { get; set; }
-        public bool ReannounceAttempted { get; set; }
+        public long DownloadedBytes { get; set; }
+        public bool HasMetadata { get; set; }
+        public DateTime NextRefresh { get; set; }
+        public int RefreshAttempts { get; set; }
 
-        public ProgressTracker(float progress)
+        public ProgressTracker(TorrentView torrent, DateTime now)
         {
-            LastProgress = progress;
-            LastChangeTime = DateTime.UtcNow;
-            ReannounceAttempted = false;
+            LastProgress = torrent.Progress;
+            DownloadedBytes = torrent.DownloadedBytes;
+            HasMetadata = torrent.HasMetadata;
+            LastChangeTime = now;
+            NextRefresh = now.AddMinutes(1);
         }
     }
 
@@ -71,10 +76,12 @@ namespace Controllarr.Core.Services
         private readonly Dictionary<string, HealthIssue> _issues = new();
         private readonly object _lock = new();
         private readonly Logger _logger;
+        private readonly TimeProvider _time;
 
-        public HealthMonitor(Logger? logger = null)
+        public HealthMonitor(Logger? logger = null, TimeProvider? timeProvider = null)
         {
             _logger = logger ?? Logger.Instance;
+            _time = timeProvider ?? TimeProvider.System;
         }
 
         /// <summary>
@@ -83,18 +90,19 @@ namespace Controllarr.Core.Services
         /// </summary>
         public void Tick(IReadOnlyList<TorrentView> torrents, Settings settings)
         {
+            var refresh = new List<TorrentView>();
+            DateTime now = _time.GetUtcNow().UtcDateTime;
             lock (_lock)
             {
                 var activeHashes = new HashSet<string>();
 
                 foreach (var t in torrents)
                 {
-                    // Only monitor downloading torrents
-                    if (t.State != TorrentState.Downloading)
+                    if (t.State is not (TorrentState.Downloading or TorrentState.DownloadingMetadata))
                         continue;
 
                     activeHashes.Add(t.InfoHash);
-                    EvaluateTorrent(t, settings);
+                    EvaluateTorrent(t, settings, now, refresh);
                 }
 
                 // Purge trackers & issues for torrents no longer downloading
@@ -109,6 +117,13 @@ namespace Controllarr.Core.Services
                     _progressMap.Remove(hash);
                     _issues.Remove(hash);
                 }
+            }
+            // Engine callbacks enqueue bounded work. Never invoke external code
+            // under the monitor lock (API snapshots must remain responsive).
+            foreach (var torrent in refresh)
+            {
+                try { torrent.RequestReannounce(); }
+                catch (Exception ex) { _logger.Warn("HealthMonitor", $"Discovery refresh could not be queued: {ex.GetType().Name}"); }
             }
         }
 
@@ -130,38 +145,53 @@ namespace Controllarr.Core.Services
                 if (_progressMap.TryGetValue(infoHash, out var tracker))
                 {
                     // Reset the timer so it doesn't immediately re-trigger
-                    tracker.LastChangeTime = DateTime.UtcNow;
-                    tracker.ReannounceAttempted = false;
+                    tracker.LastChangeTime = _time.GetUtcNow().UtcDateTime;
+                    tracker.NextRefresh = tracker.LastChangeTime.AddMinutes(1);
+                    tracker.RefreshAttempts = 0;
                 }
             }
         }
 
         // ── Internals ───────────────────────────────────────────────
 
-        private void EvaluateTorrent(TorrentView t, Settings settings)
+        private void EvaluateTorrent(TorrentView t, Settings settings, DateTime now, List<TorrentView> refresh)
         {
             float progress = t.Progress;
 
             if (!_progressMap.TryGetValue(t.InfoHash, out var tracker))
             {
-                tracker = new ProgressTracker(progress);
+                tracker = new ProgressTracker(t, now);
                 _progressMap[t.InfoHash] = tracker;
                 return; // first observation – need a baseline
             }
 
             // Progress changed → update tracker and clear any existing issue
-            if (Math.Abs(progress - tracker.LastProgress) > 0.0001f)
+            if (progress != tracker.LastProgress || t.DownloadedBytes != tracker.DownloadedBytes ||
+                t.HasMetadata != tracker.HasMetadata || t.DownloadRateBytes > 0)
             {
                 tracker.LastProgress = progress;
-                tracker.LastChangeTime = DateTime.UtcNow;
-                tracker.ReannounceAttempted = false;
+                tracker.DownloadedBytes = t.DownloadedBytes;
+                tracker.HasMetadata = t.HasMetadata;
+                tracker.LastChangeTime = now;
+                tracker.NextRefresh = now.AddMinutes(1);
+                tracker.RefreshAttempts = 0;
                 _issues.Remove(t.InfoHash);
                 return;
             }
 
             // Check if stall threshold reached
-            double minutesStalled = (DateTime.UtcNow - tracker.LastChangeTime).TotalMinutes;
+            double minutesStalled = (now - tracker.LastChangeTime).TotalMinutes;
             int stallMinutes = settings.HealthStallMinutes > 0 ? settings.HealthStallMinutes : 30;
+
+            // Rediscover missing peers before the long health/escalation timeout.
+            // Do not restart managers, evict healthy peers or add arbitrary trackers.
+            if (settings.HealthReannounceOnStall && now >= tracker.NextRefresh &&
+                (!t.HasMetadata || t.NumPeers == 0 || minutesStalled >= stallMinutes))
+            {
+                tracker.RefreshAttempts++;
+                tracker.NextRefresh = now.AddMinutes(Math.Min(15, Math.Pow(2, Math.Min(tracker.RefreshAttempts, 4))));
+                refresh.Add(t);
+            }
 
             if (minutesStalled < stallMinutes)
                 return;
@@ -173,23 +203,14 @@ namespace Controllarr.Core.Services
             {
                 existing.Reason = reason;
                 existing.LastProgress = progress;
-                existing.LastUpdated = DateTime.UtcNow;
+                existing.LastUpdated = now;
             }
             else
             {
-                var issue = new HealthIssue(t.InfoHash, t.Name, reason, progress);
+                var issue = new HealthIssue(t.InfoHash, t.Name, reason, progress) { FirstSeen = now, LastUpdated = now };
                 _issues[t.InfoHash] = issue;
                 _logger.Warn("HealthMonitor",
-                    $"Torrent stalled: {t.Name} [{t.InfoHash[..8]}...] reason={reason}");
-
-                // Auto-reannounce on first stall if configured
-                if (settings.HealthReannounceOnStall && !tracker.ReannounceAttempted)
-                {
-                    tracker.ReannounceAttempted = true;
-                    t.RequestReannounce();
-                    _logger.Info("HealthMonitor",
-                        $"Reannounce requested for: {t.Name}");
-                }
+                    $"Torrent stalled: {t.Name} [{t.InfoHash[..Math.Min(8, t.InfoHash.Length)]}...] reason={reason}");
             }
         }
 

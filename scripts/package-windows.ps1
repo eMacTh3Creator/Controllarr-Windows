@@ -21,10 +21,11 @@ try {
         $stage = Join-Path $OutputDirectory "stage-$runtime-$([guid]::NewGuid().ToString('N'))"
         & dotnet publish src/Controllarr.App/Controllarr.App.csproj -c Release -r $runtime --self-contained true -p:PublishSingleFile=false -o $stage --nologo
         if ($LASTEXITCODE -ne 0) { throw "Publish failed: $runtime" }
-        foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md')) {
+        foreach ($guide in @('INSTALL.md', 'DESKTOP.md', 'NETWORKING.md', 'OPERATIONS.md', 'PERFORMANCE.md', 'NATIVE_DESKTOP_VALIDATION.md', 'STALL_AUDIT.md')) {
             Copy-Item (Join-Path 'docs' $guide) (Join-Path $stage $guide)
         }
         Copy-Item LICENSE (Join-Path $stage 'LICENSE')
+        Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $stage 'THIRD_PARTY_NOTICES.md')
         $notes = "RELEASE_NOTES_v$version.md"
         if (Test-Path $notes) { Copy-Item $notes (Join-Path $stage $notes) }
         $archive = Join-Path $OutputDirectory "Controllarr-$version-$runtime.zip"
@@ -38,5 +39,5 @@ try {
         # Only this invocation's generated staging folder is removed.
         Remove-Item $stage -Recurse -Force
     }
-    $checksums | Set-Content (Join-Path $OutputDirectory 'SHA256SUMS.txt') -Encoding ASCII
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory 'SHA256SUMS.txt'), ($checksums -join "`n") + "`n", [Text.Encoding]::ASCII)
 } finally { Pop-Location }

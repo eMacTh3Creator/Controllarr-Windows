@@ -5,6 +5,20 @@ Library size is not the same as simultaneously active downloads: disk speed,
 peer churn, hashing and tracker behavior still determine achievable throughput.
 Do not treat a synthetic row test as a guarantee of production stability.
 
+## v2.2.3 Discovery Repairs
+
+v2.2.3 adds four-worker, bounded/deduplicated peer rediscovery with
+backoff, correct tracker failover/intervals, UDP-first bound DNS and selected-file
+queue completion. Torrent intake uses asynchronous engine calls and lightweight
+registration saves, not whole-library resume checkpoints on every add; API
+intake batches save every 25 successes and at the end. Socket pruning runs at
+most once per second during activity rather than scanning all connections on
+each connect. See [STALL_AUDIT.md](STALL_AUDIT.md) for remaining service-I/O,
+download fairness and metadata queue-policy work. DHT uses one reusable UDP
+socket, bounded message/lookup queues, a bounded/expiring peer store and one
+maintenance timer, not a thread or socket per torrent. Bootstrap DNS is
+cancellable and follows the enforced adapter. DHT is still disabled for SOCKS5.
+
 ## Implemented in the Desktop Redesign
 
 - WPF DataGrid row/column virtualization, recycling and a bounded layout; no
@@ -102,8 +116,9 @@ connections per download, or immediate connection recycling. Review private
 tracker requirements before queuing seeds. Browser saves apply these limits live.
 These controls and the default save folder apply when settings are saved.
 Preferred listen-port changes can apply live; WebUI listener and torrent
-VPN/proxy/blocklist topology changes require a restart. Protected discovery
-remains disabled regardless of the saved DHT/LSD switches.
+VPN/proxy/blocklist topology changes require a restart. DHT works through VPN
+binding and blocklists; SOCKS5 still disables it. Local discovery/router mapping
+remain disabled in protected modes.
 
 Use Task Manager/Resource Monitor and the persistent profile log to identify
 the actual bottleneck. Avoid simultaneously checking a large library and

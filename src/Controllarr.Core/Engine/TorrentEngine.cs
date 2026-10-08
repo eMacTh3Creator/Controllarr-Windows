@@ -71,6 +71,8 @@ public sealed class SessionStats
     public int NumTorrents { get; init; }
     public int NumPeersConnected { get; init; }
     public int ConnectionLimit { get; init; }
+    public int DhtNodes { get; init; }
+    public string DhtState { get; init; } = "NotReady";
     public bool HasIncomingConnections { get; init; }
     public ushort ListenPort { get; init; }
 }
@@ -135,7 +137,6 @@ public sealed partial class TorrentEngine : IDisposable
 {
     // ── Core engine ────────────────────────────────────────────
     private readonly ClientEngine _engine;
-    private readonly object _engineLock = new();
     private readonly SemaphoreSlim _stateSaveGate = new(1, 1);
     private readonly SemaphoreSlim _settingsGate = new(1, 1);
     private readonly object _snapshotLock = new();
@@ -171,6 +172,7 @@ public sealed partial class TorrentEngine : IDisposable
         _resumeDataDirectory = resumeDataDirectory ?? throw new ArgumentNullException(nameof(resumeDataDirectory));
         _listenPort = listenPort;
         NetworkPolicy = new TorrentNetworkPolicy(initialSettings ?? new Settings());
+        _duplicatePolicy = initialSettings?.DuplicateTorrentPolicy ?? DuplicateTorrentPolicy.MergeTrackers;
         var factories = TorrentNetworkFactories.Create(NetworkPolicy);
 
         Directory.CreateDirectory(_defaultSavePath);
@@ -196,8 +198,8 @@ public sealed partial class TorrentEngine : IDisposable
                 ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, _listenPort)
             },
             AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery,
-            AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery,
-            DhtEndPoint = NetworkPolicy.RestrictedDiscovery ? null : new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0),
+            AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery && (initialSettings?.PeerDiscovery.LsdEnabled ?? true),
+            DhtEndPoint = !NetworkPolicy.DhtAllowed || initialSettings?.PeerDiscovery.DhtEnabled == false ? null : new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0),
             AutoSaveLoadFastResume = false,
         }.ToSettings();
 
@@ -237,8 +239,8 @@ public sealed partial class TorrentEngine : IDisposable
                         ["ipv4"] = new System.Net.IPEndPoint(System.Net.IPAddress.Any, _listenPort)
                     },
                     AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery,
-                    AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery,
-                    DhtEndPoint = NetworkPolicy.RestrictedDiscovery ? null : _engine.Settings.DhtEndPoint,
+                    AllowLocalPeerDiscovery = !NetworkPolicy.RestrictedDiscovery && (initialSettings?.PeerDiscovery.LsdEnabled ?? true),
+                    DhtEndPoint = !NetworkPolicy.DhtAllowed || initialSettings?.PeerDiscovery.DhtEnabled == false ? null : settings.DhtEndPoint,
                     AutoSaveLoadFastResume = false,
                 }.ToSettings();
                 _engine.UpdateSettingsAsync(rebuilt).GetAwaiter().GetResult();
@@ -259,6 +261,7 @@ public sealed partial class TorrentEngine : IDisposable
         }
         RestoreResumeCheckpoints();
         RestoreDesktopOptions();
+        InitializeDiscovery();
     }
 
     // ───────────────────────────────────────────────────────────
@@ -291,27 +294,7 @@ public sealed partial class TorrentEngine : IDisposable
         ThrowIfDisposed();
 
         var magnet = MagnetLink.Parse(uri);
-        if (FindManager(magnet.InfoHashes.V1OrV2.ToHex()) is { } duplicate) return duplicate.InfoHashes.V1OrV2.ToHex();
-        var save = ResolveSavePath(savePath);
-
-        TorrentManager manager;
-        lock (_engineLock)
-        {
-            manager = _engine.AddAsync(magnet, save).GetAwaiter().GetResult();
-        }
-
-        var hash = manager.InfoHashes.V1OrV2.ToHex();
-        RegisterManager(hash, manager);
-        InvalidateStats();
-
-        if (!string.IsNullOrEmpty(category))
-            _categories[hash] = category;
-
-        _addedDates[hash] = DateTime.UtcNow;
-
-        await StartManagedAsync(manager);
-        if (persist) await SaveEngineStateAsync();
-        return hash;
+        return await AddSourceAsync(magnet, null, category, savePath, persist);
     }
 
     /// <summary>
@@ -326,27 +309,35 @@ public sealed partial class TorrentEngine : IDisposable
             throw new System.IO.FileNotFoundException("Torrent file not found.", filePath);
 
         var torrent = await Torrent.LoadAsync(filePath);
-        if (FindManager(torrent.InfoHashes.V1OrV2.ToHex()) is { } duplicate) return duplicate.InfoHashes.V1OrV2.ToHex();
-        var save = ResolveSavePath(savePath);
+        return await AddSourceAsync(null, torrent, category, savePath, persist);
+    }
 
-        TorrentManager manager;
-        lock (_engineLock)
+    private async Task<string> AddSourceAsync(MagnetLink? magnet, Torrent? torrent, string? category, string? savePath, bool persist)
+    {
+        // Serialize intake with removal/scheduling, but never block a thread on
+        // MonoTorrent's asynchronous main loop or perform whole-library checkpoints per add.
+        await _queueGate.WaitAsync();
+        try
         {
-            manager = _engine.AddAsync(torrent, save).GetAwaiter().GetResult();
+            ThrowIfDisposed();
+            string hash = (magnet?.InfoHashes ?? torrent!.InfoHashes).V1OrV2.ToHex();
+            if (FindManager(hash) is { } duplicate)
+            {
+                await MergeDuplicateTrackersAsync(duplicate, magnet?.AnnounceUrls ?? torrent!.AnnounceUrls.SelectMany(t => t).ToArray());
+                if (persist) await SaveEngineStateAsync(checkpointResume: false);
+                return hash;
+            }
+            string save = ResolveSavePath(savePath);
+            var manager = magnet != null ? await _engine.AddAsync(magnet, save) : await _engine.AddAsync(torrent!, save);
+            RegisterManager(hash, manager);
+            if (!string.IsNullOrEmpty(category)) _categories[hash] = category;
+            _addedDates[hash] = DateTime.UtcNow;
+            await StartManagedAsync(manager);
+            InvalidateStats();
+            if (persist) await SaveEngineStateAsync(checkpointResume: false);
+            return hash;
         }
-
-        var hash = manager.InfoHashes.V1OrV2.ToHex();
-        RegisterManager(hash, manager);
-        InvalidateStats();
-
-        if (!string.IsNullOrEmpty(category))
-            _categories[hash] = category;
-
-        _addedDates[hash] = DateTime.UtcNow;
-
-        await StartManagedAsync(manager);
-        if (persist) await SaveEngineStateAsync();
-        return hash;
+        finally { _queueGate.Release(); }
     }
 
     // ───────────────────────────────────────────────────────────
@@ -650,24 +641,6 @@ public sealed partial class TorrentEngine : IDisposable
     // Trackers / Peers / Reannounce
     // ───────────────────────────────────────────────────────────
 
-    public async Task<bool> Reannounce(string infoHash)
-    {
-        var mgr = FindManager(infoHash);
-        if (mgr is null) return false;
-
-        try
-        {
-            await mgr.DhtAnnounceAsync();
-            // Also announce to all trackers.
-            await mgr.TrackerManager.AnnounceAsync(CancellationToken.None);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     public TrackerInfo[]? GetTrackers(string infoHash)
     {
         var mgr = FindManager(infoHash);
@@ -794,6 +767,8 @@ public sealed partial class TorrentEngine : IDisposable
             NumTorrents = snapshots.Length,
             NumPeersConnected = peers,
             ConnectionLimit = _engine.Settings.MaximumConnections,
+            DhtNodes = _engine.Dht.NodeCount,
+            DhtState = _engine.Settings.DhtEndPoint == null ? "Disabled" : _engine.Dht.State.ToString(),
             HasIncomingConnections = _engine.ConnectionManager.OpenConnections > 0,
             ListenPort = _listenPort
         };
@@ -860,7 +835,7 @@ public sealed partial class TorrentEngine : IDisposable
                 MaximumConnections = globalMaxConnections > 0 ? globalMaxConnections : 200,
                 AllowLocalPeerDiscovery = localPeerDiscoveryEnabled && !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired,
                 AllowPortForwarding = !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired,
-                DhtEndPoint = dhtEnabled && !NetworkPolicy.RestrictedDiscovery && !NetworkPolicy.RestartRequired
+                DhtEndPoint = dhtEnabled && NetworkPolicy.DhtAllowed && !NetworkPolicy.RestartRequired
                     ? new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0)
                     : null,
             };
@@ -876,15 +851,8 @@ public sealed partial class TorrentEngine : IDisposable
 
     public async Task ForceReannounceAll()
     {
-        foreach (var mgr in _engine.Torrents)
-        {
-            try
-            {
-                await mgr.DhtAnnounceAsync();
-                await mgr.TrackerManager.AnnounceAsync(CancellationToken.None);
-            }
-            catch { /* best effort */ }
-        }
+        foreach (string hash in _managersByHash.Keys) RequestReannounce(hash);
+        await Task.CompletedTask;
     }
 
     public async Task SaveResumeData()
@@ -933,6 +901,9 @@ public sealed partial class TorrentEngine : IDisposable
     {
         if (_disposed) return;
         _shuttingDown = true;
+        _discoveryCancellation.Cancel();
+        _discoveryQueue.Writer.TryComplete();
+        await Task.WhenAll(_discoveryWorkers);
         foreach (var preview in _previews.Values.ToArray()) await preview.DisposeAsync();
 
         // Save the torrent list first (while torrents are still present) so the
@@ -1099,7 +1070,7 @@ public sealed partial class TorrentEngine : IDisposable
             Name = mgr.Name ?? hash,
             InfoHash = hash,
             SavePath = mgr.SavePath,
-            Progress = (float)(mgr.Progress / 100.0),
+            Progress = (float)(mgr.PartialProgress / 100.0),
             State = state,
             Paused = paused,
             DownloadRate = mgr.Monitor.DownloadSpeed,
@@ -1119,7 +1090,7 @@ public sealed partial class TorrentEngine : IDisposable
             StatusReason = Desktop.TransferStatus.Describe(state, _pausedHashes.ContainsKey(hash) || paused,
                 totalWanted, totalDone, dlSpeed, numPeers, mgr.Settings.MaximumConnections,
                 _engine.ConnectionManager.OpenConnections, _engine.Settings.MaximumConnections,
-                blocked, waiting, _removalPending.ContainsKey(hash))
+                blocked, waiting, _removalPending.ContainsKey(hash), DiscoveryProblem(mgr))
         };
     }
 

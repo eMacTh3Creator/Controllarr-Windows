@@ -6,7 +6,7 @@ public static class TransferStatus
 {
     public static string Describe(TorrentState state, bool paused, long wanted, long done, long downloadRate,
         int peers, int torrentConnectionLimit, int globalConnections, int globalConnectionLimit,
-        string? blocked = null, string? queuedReason = null, bool removing = false)
+        string? blocked = null, string? queuedReason = null, bool removing = false, string? discoveryProblem = null)
     {
         if (removing) return "Stopped for removal; waiting for the removal sequence.";
         if (state == TorrentState.Error) return "Torrent error; check Log for details.";
@@ -23,6 +23,7 @@ public static class TransferStatus
             return $"Global connection limit reached ({globalConnections}/{globalConnectionLimit}); new peers may be blocked. Reduce active seeds/peer caps or raise the limit carefully.";
         if (torrentConnectionLimit > 0 && peers >= torrentConnectionLimit)
             return $"Per-torrent connection limit reached ({peers}/{torrentConnectionLimit}); connected peers are not sending data.";
+        if (peers == 0 && discoveryProblem != null) return discoveryProblem;
         if (state == TorrentState.DownloadingMetadata) return "Waiting for magnet metadata from peers; check Trackers and Peers.";
         return peers == 0 ? "No connected peers yet; seed availability is unconfirmed. Check Trackers and Peers."
             : "Peers connected but not sending data yet; they may be choking or missing the requested pieces. Check Peers and Trackers.";

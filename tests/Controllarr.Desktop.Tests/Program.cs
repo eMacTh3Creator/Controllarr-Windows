@@ -20,7 +20,14 @@ TorrentStats Stats(string hash, string name = "Example", string? category = null
       Paused = state == TorrentState.Paused, DownloadRate = rate, TotalWanted = 1024, TotalDone = 512 };
 
 await NetworkPolicyTests.RunAsync(Check);
+await DhtTests.RunAsync(Check);
 await QueueTests.RunAsync(Check);
+await DiscoveryTests.RunAsync(Check);
+if (args.Contains("--discovery-only"))
+{
+    Console.WriteLine($"{passed} discovery/network checks passed.");
+    return;
+}
 
 var catalog = new TorrentCatalog();
 catalog.Reconcile(new[] { Stats("ABC", category: "Movies"), Stats("def", category: "TV") });

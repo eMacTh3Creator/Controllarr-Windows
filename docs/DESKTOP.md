@@ -3,7 +3,7 @@
 The redesigned desktop is WPF, not a WebView2 portal. It talks directly to
 MonoTorrent and the runtime services. The browser WebUI and qBittorrent API
 remain separate remote-management interfaces; no WebUI login is needed locally.
-The current v2.2.2 release adds repaired queue ranks, download peer headroom and
+The current v2.2.3 release adds bound DHT/discovery reliability to repaired queue ranks, download peer headroom and
 live transfer diagnosis to the full x64/experimental ARM64 installers,
 profile preservation/import and pause-first bulk removal. See [INSTALL.md](INSTALL.md).
 
@@ -90,6 +90,13 @@ pauses stop the transfer because the library's pause operation ignores those mod
 Downloads are admitted before ordinary seeds when the total cap is scarce;
 position order applies within each class. Forced torrents retain precedence.
 Queue rank is a library ordering number, not the number of active jobs ahead.
+
+v2.2.3 counts only selected files for completion: skipped
+files no longer hold a completed selection in an active download slot. Metadata
+jobs are monitored for stalls, and bounded backoff-based discovery refreshes use
+the auto-reannounce toggle. Missing tracker/DHT sources appear in the selected
+waiting reason. DHT can bootstrap through the VPN adapter; see
+[the stall audit](STALL_AUDIT.md).
 
 Settings > Connections and discovery includes **Download connection reserve**:
 0-90%, default 25%, with 0 disabling this policy. While eligible downloads or
@@ -219,7 +226,7 @@ these changes shipped in old versions.
 Active queues, RSS/watch-folder intake, metadata migration, tracker editing,
 speed limits and torrent creation are implemented in v2.2.0. Exhaustive
 uTorrent/BitTorrent compatibility is not claimed: super-seeding, proxy UDP
-ASSOCIATE, protected-mode DHT/IPv6 and full foreign-client verified-piece resume
+ASSOCIATE, protected-mode IPv6 and full foreign-client verified-piece resume
 conversion remain outside this implementation. The native blocklist control
 selects a local text file; it is not a remote subscription/download service.
 The remote WebUI does not yet expose the new desktop-only creation/migration

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Controllarr v2.2.2: a native Windows torrent desktop with aware queues, download connection headroom, VPN binding and a Sonarr/Radarr API. Download x64 or experimental ARM64 installers.">
+  <meta name="description" content="Controllarr v2.2.3: native Windows torrent desktop with VPN-bound DHT, PIA/NordVPN tunnel detection, reliable metadata discovery and a Sonarr/Radarr API. Download x64 or experimental ARM64 installers.">
   <meta name="theme-color" content="#071117">
   <meta property="og:title" content="Controllarr for Windows">
   <meta property="og:description" content="Windows-native torrent control for your *arr stack.">
@@ -239,13 +239,13 @@
           <h1>Windows-native torrent control for your <span class="arr">*arr</span> stack.</h1>
           <p class="lead">A standalone BitTorrent desktop with a qBittorrent-compatible API for Sonarr and Radarr. Control your whole library locally, or let your media server manage it over the LAN. Full installers keep your settings &mdash; no .NET or WebView2 install required.</p>
           <div class="actions">
-            <a class="button primary" data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-x64-Setup.exe">Download x64 installer</a>
-            <a class="button quiet" data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-arm64-Setup.exe">ARM64 installer &middot; experimental</a>
+            <a class="button primary" data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64-Setup.exe">Download x64 installer</a>
+            <a class="button quiet" data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64-Setup.exe">ARM64 installer &middot; experimental</a>
             <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">All releases</a>
           </div>
           <div class="proof" aria-label="Project highlights">
             <span><i class="dot"></i>Windows 10/11</span>
-            <span><i class="dot"></i>v2.2.2 &middot; native WPF desktop</span>
+            <span><i class="dot"></i>v2.2.3 &middot; native WPF desktop</span>
             <span><i class="dot"></i>MIT licensed</span>
             <span><i class="dot"></i>qBittorrent Web API v2</span>
           </div>
@@ -302,7 +302,7 @@
       <div class="shell">
         <div class="section-title">
           <h2>Built for control. Designed for scale.</h2>
-          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.2.2 repairs stale queue ranks, reserves peer headroom for downloads and explains waiting transfers. Profile-preserving x64 and experimental ARM64 installers are available.</p>
+          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.2.3 adds VPN-bound DHT, PIA/NordVPN tunnel recognition, metadata recovery and tracker failover. Profile-preserving x64 and experimental ARM64 installers are available.</p>
         </div>
 
         <div class="feature-rail">
@@ -310,7 +310,7 @@
             <div class="icon-orb">VPN</div>
             <div>
               <h3>VPN-aware routing</h3>
-              <p>Pin torrent sockets and DNS to your selected VPN adapter; missing adapters block starts without ordinary-interface fallback. LAN WebUI/API traffic stays separate. Keep your provider's kill switch on: its LAN policy and Windows firewall rules still apply. Real-provider leak and reconnect validation remains outstanding.</p>
+              <p>Pin peers, trackers, DHT and bootstrap DNS to your selected VPN adapter. PIA, NordLynx and popular tunnel names are detected automatically; ambiguous matches require a selection. Missing adapters block traffic without ordinary-interface fallback. LAN management stays separate. Keep your provider's kill switch on; real-provider leak validation remains outstanding.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>Wintun</strong><span>adapter watch</span></div>
@@ -368,9 +368,9 @@ Login:  admin / adminadmin</pre>
         <div class="release-band">
           <div>
             <h2>A standalone desktop, not a browser portal</h2>
-            <p class="lead">Available now in v2.2.2: repaired live queue ranks, download-first slots, configurable peer headroom, transfer waiting reasons, pause-first removal, profile import, RSS, migration and VPN controls. Both CPUs include the same native desktop. ARM64 remains experimental after an earlier single-file API crash; short prechecks do not establish its root cause or long-term stability. Built-in automatic installation is still planned.</p>
+            <p class="lead">Available now in v2.2.3: VPN-bound DHT/DNS, expanded tunnel detection, tracker failover, metadata recovery and faster intake, alongside live queues, peer headroom, pause-first removal and profile import. Private torrents exclude DHT; SOCKS5 DHT is not supported. Both CPUs include the same native desktop. ARM64 remains experimental after an earlier single-file API crash; prechecks do not establish its root cause or long-term stability. Built-in automatic installation is still planned.</p>
             <div class="actions">
-              <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.2">Release notes</a>
+              <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.2.3">Release notes</a>
               <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Documentation</a>
             </div>
           </div>
@@ -394,7 +394,7 @@ Login:  admin / adminadmin</pre>
           <article class="step">
             <div class="step-num">1</div>
             <h3>Download</h3>
-            <p>Get the <a data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-x64-Setup.exe">Intel/AMD x64 installer</a> or <a data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-arm64-Setup.exe">experimental ARM64 installer</a>. Verify <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/SHA256SUMS.txt">SHA256SUMS.txt</a>. Prefer portable? Choose the <a data-format="zip" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-x64.zip">x64 ZIP</a> or <a data-format="zip" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.2/Controllarr-2.2.2-win-arm64.zip">ARM64 ZIP</a>.</p>
+            <p>Get the <a data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64-Setup.exe">Intel/AMD x64 installer</a> or <a data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64-Setup.exe">experimental ARM64 installer</a>. Verify <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/SHA256SUMS.txt">SHA256SUMS.txt</a>. Prefer portable? Choose the <a data-format="zip" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-x64.zip">x64 ZIP</a> or <a data-format="zip" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/Controllarr-2.2.3-win-arm64.zip">ARM64 ZIP</a>.</p>
           </article>
           <article class="step">
             <div class="step-num">2</div>

@@ -1,6 +1,6 @@
 # Torrent Networking and Advanced Controls
 
-Applies to Windows v2.2.0-v2.2.2, not historical v2.1.19 builds.
+Applies to Windows v2.2.3, not historical macOS/v2.1.19 builds.
 
 v2.2.2 adds bounded download peer headroom (25% by default, 0 disables it) and
 global/per-torrent cap diagnostics. This changes scheduling, not routing: no
@@ -8,11 +8,18 @@ connection-budget or queue action bypasses VPN/proxy/disk guards. A full global
 peer budget is distinct from a closed VPN adapter or missing swarm peers.
 Windows uses MonoTorrent 3.0.2; do not assume macOS/libtorrent behavior.
 
+v2.2.3 adds policy-controlled DHT, UDP-first DNS, tracker failover/interval
+repairs and bounded metadata refresh. See [the stall audit](STALL_AUDIT.md).
+
 ## VPN Binding
 
 Enable **Settings > VPN Protection > Enforce VPN-only torrent traffic**. Select
-the actual VPN tunnel, not Ethernet/Wi-Fi; automatic detection uses TAP,
-WireGuard/Wintun descriptions or the configured name prefix. Explicit adapter
+the actual VPN tunnel, not Ethernet/Wi-Fi. Automatic detection recognizes PIA,
+NordVPN/NordLynx, Proton, Mullvad, Surfshark, ExpressVPN, CyberGhost, Windscribe,
+IVPN and generic TAP/OpenVPN/WireGuard/Wintun names/descriptions, or the
+configured prefix. Multiple active candidates fail closed: choose explicitly.
+Name recognition is not authentication or proof of an encrypted connection.
+Explicit adapter
 selection uses its stable Windows interface ID and never falls back to another
 adapter. Selecting a physical adapter does not turn it into an encrypted VPN.
 
@@ -22,7 +29,7 @@ discovery engines or pooled connections alive with new settings. Changes to
 VPN selection, proxy server/credentials and blocklist file path require restart.
 Editing a blocklist file at the same path also requires restart to reload it.
 
-Peer TCP, HTTP/HTTPS trackers, webseeds, UDP trackers and tunnel DNS use
+Peer TCP, HTTP/HTTPS trackers, webseeds, UDP trackers, DHT and tunnel DNS use
 policy-owned sockets. VPN sockets bind the tunnel's IPv4 source address and
 set Windows `IP_UNICAST_IF` to its interface index. Address/network changes
 close existing sockets; polling refreshes status and queue recovery. Missing
@@ -33,14 +40,40 @@ VPN enforcement in this Windows release.
 
 Protected IPv6 torrent connections are deliberately rejected, not routed on
 the ordinary interface. Hostname resolution in VPN mode queries the adapter's
-IPv4 DNS servers over bound TCP port 53. No system-DNS fallback occurs. A VPN
-with no usable DNS server, no TCP DNS support, or an unreachable resolver may
-allow numeric-IP connections while hostname trackers/webseeds fail closed.
+IPv4 DNS servers over bound UDP port 53 first, with bound TCP fallback for
+truncated answers or UDP transport failure. Numeric Cloudflare (`1.1.1.1`) and
+Quad9 (`9.9.9.9`) resolvers are fallback choices through the same forced tunnel,
+including when a client configures DNS only on the physical adapter. These
+queries do not use the ordinary adapter or the system resolver. No system-DNS
+fallback occurs. If all tunnel-bound resolvers fail, hostname destinations and
+DHT bootstrap fail closed while numeric-IP destinations may remain usable.
 
-DHT, local peer discovery and UPnP/NAT-PMP mapping are disabled when VPN binding,
-SOCKS5 or a nonempty IP blocklist is active. Their built-in transports have
-independent discovery/DNS paths. Use tracker-backed torrents, PEX and your
-provider's forwarded incoming port. Trackerless magnets may not find peers.
+## DHT and Trackerless Magnets
+
+Enable **Settings > Connections and discovery > Enable DHT**. DHT now works
+with VPN binding and blocklists. Its IPv4 UDP listener is policy-owned, pinned
+and closed/rebound on adapter changes; no wildcard protected-mode fallback
+exists. The bootstrap resolver uses the same DNS policy above for standard
+BitTorrent/uTorrent/Transmission bootstrap routers. A small adapted, licensed
+MonoTorrent DHT source component removes the library's independent system-DNS
+path; no DLL patching or reflection is used. Private torrents never use DHT.
+
+Bootstrap failure is retryable. Saved nodes support restart; bounded lookups,
+queues, datagram depth/size, sender checks and expiring peer records limit churn
+and memory growth. The API and WebUI report actual node count/state. A zero-node
+initialising state is different from a swarm with no peers. No app can create
+seeders or override a provider blocking UDP. Incoming port forwarding helps
+reachability but is not required for ordinary outgoing DHT bootstrap.
+
+SOCKS5 still disables DHT and UDP trackers: UDP ASSOCIATE is not implemented.
+Local peer discovery and UPnP/NAT-PMP remain disabled with VPN/proxy/blocklists
+because their independent multicast/router paths are inappropriate there.
+PEX cannot discover the first peer alone. Use source-supplied trackers, never
+arbitrary public trackers on private torrents. SOCKS5 requires HTTP/HTTPS trackers.
+
+A preferred forwarded port remains fixed during automatic stall recovery;
+random ports are not automatically forwarded by your provider. Manual cycling
+is still available. Update the preferred value when your provider changes it.
 
 Microsoft documents the interface option and its byte-order requirements in
 [IPPROTO_IP socket options](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options).
@@ -90,7 +123,8 @@ line is an IPv4/IPv6 address or CIDR; `#` begins a comment. Invalid records reje
 configuration instead of silently disabling filtering. Ranges are merged at
 startup and checked with binary search; no per-peer file parsing is performed.
 
-Filtering covers incoming/outgoing peers and resolved tracker/webseed IPs.
+Filtering covers incoming/outgoing peers, DHT nodes and resolved tracker/webseed
+IPs, including tunnel DNS resolver destinations.
 The list does not filter LAN management clients; use the WebUI's separate
 allowlist for those. Proxy-resolved hostname destinations cannot be checked
 locally, so combining SOCKS5 with a nonempty blocklist rejects hostname tracker/
@@ -100,7 +134,10 @@ automatic blocklist download/subscription service or PeerGuardian format import.
 ## Diagnostics and Limits
 
 Authenticated `GET /api/controllarr/network` reports whether torrent networking
-is allowed, its bound adapter/address, proxy use and restart requirement.
+is allowed, its bound adapter/address, available adapter choices, proxy use,
+restart requirement and DHT state/node count. The browser Settings page also
+offers adapter selection and DHT enable/disable; topology changes still require
+restart. `dht_allowed` describes transport support, not the user's DHT switch.
 `GET/POST /api/controllarr/torrents/{hash}/options` reads/writes connection and
 upload-slot overrides and sequential mode. Native Transfers/context menus
 apply these controls to a multi-selection. Blank values inherit defaults.

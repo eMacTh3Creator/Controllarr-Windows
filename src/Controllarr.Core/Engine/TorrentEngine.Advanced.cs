@@ -22,6 +22,7 @@ public sealed partial class TorrentEngine
         await _advancedGate.WaitAsync().ConfigureAwait(false);
         try
         {
+            _duplicatePolicy = settings.DuplicateTorrentPolicy;
             if (!NetworkPolicy.Matches(settings) && !NetworkPolicy.RestartRequired)
             {
                 TorrentNetworkPolicy.Validate(settings);

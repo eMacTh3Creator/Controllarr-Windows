@@ -1309,7 +1309,16 @@ namespace Controllarr.App.ViewModels
                 DownloadRateBytes = (int)s.DownloadRate,
                 UploadRateBytes = (int)s.UploadRate,
                 HasMetadata = s.State != TorrentState.DownloadingMetadata,
+                DownloadedBytes = s.TotalDownload,
+                UploadedBytes = s.TotalUpload,
+                TotalBytes = s.TotalWanted,
             }).ToList();
+
+            foreach (var view in torrentViews)
+            {
+                string hash = view.InfoHash;
+                view.SetReannounceCallback(() => _engine.RequestReannounce(hash));
+            }
 
             _healthMonitor?.Tick(torrentViews, settings);
 
@@ -1482,7 +1491,7 @@ namespace Controllarr.App.ViewModels
         public void RefreshNetworkPolicy(Settings settings) => _engine.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
         public void Reannounce(string infoHash) =>
-            _engine.Reannounce(infoHash).GetAwaiter().GetResult();
+            _engine.RequestReannounce(infoHash);
     }
 
     // ────────────────────────────────────────────────────────────────

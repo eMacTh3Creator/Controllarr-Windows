@@ -1,11 +1,94 @@
 # Native Desktop Validation
 
-Date: October 7, 2026. Current release: `2.2.2`. Historical original candidates:
+Date: October 7, 2026. Current release: `2.2.3`. Historical original candidates:
 `2.2.0-preview.1` and `2.2.0-preview.2`. Baseline results below refer to
 preview.1 unless noted; preview hashes are preserved as historical evidence.
 Host: macOS cross-build; test target: the user's running Windows 11 ARM64
 Parallels VM (10 virtual CPUs, 24 GB RAM). All engine fixtures and the live app
 use disposable lab folders, never the user's production profile.
+
+## v2.2.3 DHT Prechecks
+
+The Windows 11 ARM64 VM source run passed **203 logic/real-engine checks**
+(including optional bulk-removal and 1,000-torrent fixtures),
+including real local UDP DHT bootstrap/get_peers, cache restart, incoming
+token-validated announcements, advertised peer ports, spoofed-source rejection,
+bounded bencoding depth/size, invalid-token allocation denial, missing-VPN
+DNS/socket denial, proxy refusal, blocklist destinations and bootstrap shutdown
+cancellation. Provider-name checks cover PIA/NordLynx and generic/popular tunnels,
+including negative physical/Hyper-V/substring matches.
+
+Windows DHT datagrams were checked against an explicitly selected guest adapter:
+listener/send source binding, reset/rebind, and immediate topology-latch closure
+passed. That guest adapter is not an encrypted provider tunnel. WPF again
+passed all 13 pages, filter/selection/layout and 13 realized rows for 10,000
+items. The macOS portable logic/DHT run passed 123 checks; it does not validate
+Windows interface options. Real-provider packet capture, physical x64 hardware
+and multi-day churn/throughput remain unverified.
+
+Five consecutive final-source runs passed all 118 discovery/network checks.
+Repeat testing exposed an HTTP tracker failure-reason response marked OK by
+MonoTorrent; the adapter now rejects it for tier failover, with a dedicated
+regression check. The original random 16-node DHT fixture occasionally missed
+the ten-node readiness threshold; the final fixture uses 64 local UDP nodes.
+WebUI checks cover DHT/adapter settings preservation and saved dropdown values
+after options are populated; site and JavaScript syntax checks also passed.
+
+The ARM64 source runner measured 2,376 paused local 16 KiB removals in 36.25
+seconds and eight hung-tracker removals in 2.06 seconds. Its 1,000-torrent import
+took 4.21 seconds; uncached stats polling averaged 3.65 ms. Runner private bytes
+were 66.0 MiB at measurement, not whole-app or peak memory. These disposable
+local fixtures do not measure large-payload/network throughput.
+
+### Final Package Checks
+
+The exact v2.2.3 x64 and ARM64 ZIP payloads both passed isolated network/API
+startup, missing-VPN DHT diagnostics, live limits, topology latch, encrypted
+credential restart, metadata pause, queue-rank repair and persistent deletion
+checks. Both Setup.exe installers passed complete-payload install, keep-existing
+profile, in-place reinstall/import with backup and uninstall while retaining
+profile metadata. Packaging also reran the default 200-check engine suite,
+WPF harness and profile-import safeguards. All four artifact SHA-256 values and
+both ZIP CRCs were verified on the build host; the archives contain the correct
+x64/ARM64 executable payloads, guides and third-party license notices.
+
+x64 ran under Windows-on-ARM emulation, not physical Intel/AMD hardware. No
+production profile or downloads were used. Public-network firewall access was
+not granted and firewall protections were not disabled for these checks. The
+release's [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.2.3/SHA256SUMS.txt)
+identifies the tested binaries. The bundled report records pre-packaging source
+checks; this online section records the subsequent exact-artifact checks.
+
+## Discovery Audit Before DHT
+
+Source after v2.2.2 passed the Release cross-build and 163 logic/real-engine
+checks in the Windows 11 ARM64 VM. The new coverage includes actual loopback
+HTTP-tracker magnet metadata acquisition and a hash-verified 64 KiB payload,
+same-tier failover after a rejected announce, tracker interval/minimum handling,
+merged tracker/pause restart persistence, selective-file queue-slot release,
+metadata health/backoff/toggle and byte-progress detection. Local DNS fixtures
+verify UDP-only responses, truncated UDP to TCP fallback, and missing-VPN denial.
+The WPF harness passed all 13 pages, selection/layout/filter preservation and
+viewport virtualization (13 realized rows for 10,000 items). These are source
+prechecks, not a published release, real-provider leak certification or a
+production throughput/metadata-availability guarantee. See [STALL_AUDIT.md](STALL_AUDIT.md).
+
+Final source also published self-contained x64 and ARM64 app folders to a new
+disposable VM lab directory; both passed isolated API/network checks (including
+missing-VPN starts, live limits, topology restart latch, encrypted credentials,
+metadata pause, deletion persistence and queue repair). The self-contained x64
+test runner passed 166 checks with both optional large fixtures enabled. x64
+ran under Windows-on-ARM emulation, not physical Intel/AMD hardware.
+
+The x64 runner measured 2,376 paused 16 KiB fixture removals in 52.08 seconds
+and eight hung-tracker active removals in 2.10 seconds. Its subsequent 1,000
+local-torrent run imported in 4.63 seconds and averaged 6.31 ms per uncached
+stats poll. Runner private bytes were 172.1 MiB at measurement, after the large
+removal suite; this is not a clean-start or whole-app memory measurement and
+is not directly comparable to the earlier ARM64-only run. Node WebUI/site
+checks and the final zero-error cross-build also passed (17 existing warnings).
+All fixtures were isolated; no production profile/downloads were accessed and
+no release assets or published website were changed during that earlier audit.
 
 ## v2.2.2 Source Prechecks
 

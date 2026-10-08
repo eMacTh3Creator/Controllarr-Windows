@@ -10,7 +10,7 @@ New-Item -ItemType Directory -Force $downloads | Out-Null
 @{ settings = @{
     default_save_path = $downloads; web_ui_host = '127.0.0.1'; web_ui_port = 18792
     vpn_enabled = $true; vpn_interface_id = 'missing-network-test-adapter'
-    peer_discovery = @{ dht_enabled = $false; lsd_enabled = $false }
+    peer_discovery = @{ dht_enabled = $true; lsd_enabled = $false }
     ui_preferences = @{ automatic_update_checks = $false; close_to_tray = $false }
     torrent_network = @{ proxy_username = 'fixture-user'; proxy_password = 'fixture-secret' }
 }; categories = @() } | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $profile 'state.json') -Encoding UTF8
@@ -44,6 +44,11 @@ try {
     Login
     $network = GetJson '/api/controllarr/network'
     if ($network.allowed -or !$network.vpn_required) { throw 'Missing VPN did not fail closed.' }
+    if (!$network.dht_allowed -or $network.dht_state -eq 'Disabled' -or $network.dht_nodes -ne 0 -or @($network.adapters).Count -lt 1) {
+        throw 'Bound DHT/adapter diagnostics are missing or unsafe with an unavailable VPN.'
+    }
+    if ((GetJson '/api/controllarr/stats').dht_nodes -ne 0 -or (GetJson '/api/v2/transfer/info').dht_nodes -ne 0) { throw 'DHT stats disagree with the blocked fixture.' }
+    Write-Output 'PASS enabled DHT stays fail-closed with missing VPN and exposes runtime/adapter diagnostics'
     Invoke-WebRequest "$base/" -WebSession $session -UseBasicParsing | Out-Null
     Write-Output 'PASS LAN API/WebUI remain responsive while torrent networking is blocked'
     $hash = '0123456789012345678901234567890123456789'
@@ -62,6 +67,7 @@ try {
     $settings = GetJson '/api/controllarr/settings'
     if ($settings.torrent_network.ProxyPassword -ne 'fixture-secret') { throw 'DPAPI secret did not load.' }
     $settings.vpn_enabled = $false
+    $settings.peer_discovery.dht_enabled = $false
     $settings.connection_limits.global_max_connections = 75
     $settings.connection_limits.download_reserve_percent = 50
     Invoke-WebRequest "$base/api/controllarr/settings" -Method Post -Body ($settings | ConvertTo-Json -Depth 30) -ContentType 'application/json' -WebSession $session -UseBasicParsing | Out-Null

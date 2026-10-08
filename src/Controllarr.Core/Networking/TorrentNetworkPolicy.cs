@@ -20,9 +20,11 @@ public sealed class TorrentNetworkPolicy : IDisposable
     private VpnAdapter? _adapter;
     private bool _restartRequired;
     private bool _disposed;
+    private long _lastSocketPrune;
     public bool RequiresVpn { get; }
     public bool UsesProxy => _settings.TorrentNetwork.ProxyEnabled;
     public bool RestrictedDiscovery => RequiresVpn || UsesProxy || _blocklist.Count > 0;
+    public bool DhtAllowed => !UsesProxy;
     public bool Allowed { get { lock (_gate) return !_disposed && !_restartRequired && (!RequiresVpn || _adapter != null); } }
     public bool RestartRequired { get { lock (_gate) return _restartRequired; } }
     public VpnAdapter? Adapter { get { lock (_gate) return _adapter; } }
@@ -65,20 +67,32 @@ public sealed class TorrentNetworkPolicy : IDisposable
 
     public static VpnAdapter? DetectAdapter(Settings settings)
     {
+        var candidates = new List<VpnAdapter>();
         foreach (var n in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (n.OperationalStatus != OperationalStatus.Up || n.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
             bool match = !string.IsNullOrEmpty(settings.VpnInterfaceId) ? n.Id.Equals(settings.VpnInterfaceId, StringComparison.OrdinalIgnoreCase)
-                : new[] { "TAP", "WireGuard", "Wintun" }.Any(s => n.Description.Contains(s, StringComparison.OrdinalIgnoreCase)) ||
+                : IsVpnCandidate(n.Name, n.Description) ||
                   (!string.IsNullOrWhiteSpace(settings.VpnInterfacePrefix) && n.Name.StartsWith(settings.VpnInterfacePrefix, StringComparison.OrdinalIgnoreCase));
             if (!match) continue;
             var p = n.GetIPProperties();
             var ip = p.UnicastAddresses.Select(a => a.Address).FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork &&
                 !IPAddress.IsLoopback(a) && !a.ToString().StartsWith("169.254.", StringComparison.Ordinal));
             if (ip != null && p.GetIPv4Properties() is { } v4)
-                return new(n.Id, n.Name, ip, v4.Index, p.DnsAddresses.Where(d => d.AddressFamily == AddressFamily.InterNetwork).ToArray());
+                candidates.Add(new(n.Id, n.Name, ip, v4.Index, p.DnsAddresses.Where(d => d.AddressFamily == AddressFamily.InterNetwork).ToArray()));
         }
-        return null;
+        // Ambiguous automatic detection fails closed. Never choose an arbitrary active tunnel.
+        return candidates.Count == 1 ? candidates[0] : null;
+    }
+
+    internal static bool IsVpnCandidate(string name, string description)
+    {
+        string label = name + " " + description;
+        return System.Text.RegularExpressions.Regex.IsMatch(label, @"\b(PIA|TAP)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+            new[] { "Private Internet Access", "NordLynx", "NordVPN", "ProtonVPN", "Proton VPN",
+            "Mullvad", "Surfshark", "ExpressVPN", "CyberGhost", "Windscribe", "IVPN", "OpenVPN",
+            "WireGuard", "Wintun", "TAP-Windows", "TAP-NordVPN", "TAP-ProtonVPN" }
+            .Any(marker => label.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     private void AddressChanged(object? sender, EventArgs e) => RefreshAdapter();
@@ -142,7 +156,7 @@ public sealed class TorrentNetworkPolicy : IDisposable
                     socket.Bind(new IPEndPoint(_adapter.Address, localPort));
                 }
                 else if (localPort != 0) socket.Bind(new IPEndPoint(family == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, localPort));
-                _sockets.RemoveWhere(s => s.SafeHandle.IsClosed);
+                PruneSockets();
                 _sockets.Add(socket);
                 return socket;
             }
@@ -159,7 +173,7 @@ public sealed class TorrentNetworkPolicy : IDisposable
             if (!Allowed || UsesProxy || (RequiresVpn && !Equals(((IPEndPoint)socket.LocalEndPoint!).Address, _adapter?.Address)))
                 throw new IOException("Incoming torrent connection violates network policy.");
             if (RequiresVpn) socket.SetSocketOption(SocketOptionLevel.IP, (SocketOptionName)31, IPAddress.HostToNetworkOrder(_adapter!.Index));
-            _sockets.RemoveWhere(s => s.SafeHandle.IsClosed);
+            PruneSockets();
             _sockets.Add(socket);
         }
     }
@@ -207,13 +221,15 @@ public sealed class TorrentNetworkPolicy : IDisposable
         if (IPAddress.TryParse(host.Trim('[', ']'), out var numeric)) return new[] { numeric };
         if (!RequiresVpn) return await Dns.GetHostAddressesAsync(host, token);
         var adapter = Adapter ?? throw new IOException("VPN is unavailable.");
-        foreach (var dns in adapter.DnsServers)
+        // Some VPN clients put DNS on the physical adapter only. These numeric
+        // fallback resolvers still use the forced tunnel socket, never OS DNS.
+        foreach (var dns in adapter.DnsServers.Concat(new[] { IPAddress.Parse("1.1.1.1"), IPAddress.Parse("9.9.9.9") }).Distinct())
         {
             try { return await TunnelDns.ResolveAsync(this, dns, host, token); }
             catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException)
             { token.ThrowIfCancellationRequested(); }
         }
-        throw new IOException("No VPN-adapter IPv4 DNS server answered; system DNS fallback is disabled.");
+        throw new IOException("No tunnel-bound IPv4 DNS server answered; system DNS fallback is disabled.");
     }
 
     public HttpClient CreateHttpClient(AddressFamily family)
@@ -232,6 +248,15 @@ public sealed class TorrentNetworkPolicy : IDisposable
         return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30), DefaultRequestVersion = HttpVersion.Version11 };
     }
 
+    // Called under _gate. Scanning every socket on every connect becomes quadratic
+    // during tracker/peer bursts in large libraries.
+    private void PruneSockets()
+    {
+        long now = Environment.TickCount64;
+        if (now - _lastSocketPrune < 1000) return;
+        _lastSocketPrune = now;
+        _sockets.RemoveWhere(s => s.SafeHandle.IsClosed);
+    }
     private void CloseSockets() { foreach (var socket in _sockets) socket.Dispose(); _sockets.Clear(); }
     public void Dispose()
     {

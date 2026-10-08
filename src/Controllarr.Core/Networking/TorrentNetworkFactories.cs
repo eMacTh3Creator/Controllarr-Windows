@@ -21,14 +21,16 @@ internal static class TorrentNetworkFactories
             .WithPeerConnectionCreator("ipv6", uri => new SocketPeerConnection(uri, connector))
             .WithPeerConnectionListenerCreator(endpoint => new BoundPeerListener(policy, endpoint))
             .WithHttpClientCreator(policy.CreateHttpClient)
-            .WithTrackerCreator("http", uri => new Tracker(new MonoTorrent.Connections.Tracker.HttpTrackerConnection(uri, policy.CreateHttpClient, AddressFamily.InterNetwork)))
-            .WithTrackerCreator("https", uri => new Tracker(new MonoTorrent.Connections.Tracker.HttpTrackerConnection(uri, policy.CreateHttpClient, AddressFamily.InterNetwork)))
-            .WithTrackerCreator("udp", uri => new Tracker(new BoundUdpTracker(policy, uri)));
+            .WithTrackerCreator("http", uri => new ReliableTracker(new MonoTorrent.Connections.Tracker.HttpTrackerConnection(uri, policy.CreateHttpClient, AddressFamily.InterNetwork)))
+            .WithTrackerCreator("https", uri => new ReliableTracker(new MonoTorrent.Connections.Tracker.HttpTrackerConnection(uri, policy.CreateHttpClient, AddressFamily.InterNetwork)))
+            .WithTrackerCreator("udp", uri => new ReliableTracker(new BoundUdpTracker(policy, uri)))
+            .WithDhtCreator(() => policy.DhtAllowed
+                ? new Controllarr.Core.Dht.DhtEngine(token => BoundDhtListener.ResolveBootstrapAsync(policy, token))
+                : new DisabledDht())
+            .WithDhtListenerCreator(endpoint => policy.DhtAllowed ? new BoundDhtListener(policy, endpoint) : new DisabledDhtListener());
         // These built-in transports perform independent DNS/multicast/NAT discovery. Do not instantiate them in protected mode.
         if (policy.RestrictedDiscovery)
-            factories = factories.WithDhtCreator(() => new DisabledDht())
-                .WithDhtListenerCreator(_ => new DisabledDhtListener())
-                .WithLocalPeerDiscoveryCreator(() => new DisabledDiscovery())
+            factories = factories.WithLocalPeerDiscoveryCreator(() => new DisabledDiscovery())
                 .WithPortForwarderCreator(() => new DisabledPortForwarder());
         return factories;
     }

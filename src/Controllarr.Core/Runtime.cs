@@ -448,7 +448,7 @@ namespace Controllarr.Core
                 {
                     try
                     {
-                        Engine.Reannounce(hash).GetAwaiter().GetResult();
+                        Engine.RequestReannounce(hash);
                     }
                     catch
                     {
@@ -510,7 +510,7 @@ namespace Controllarr.Core
                     var hash = t.InfoHash;
                     view.SetReannounceCallback(() =>
                     {
-                        try { _inner.Reannounce(hash).GetAwaiter().GetResult(); }
+                        try { _inner.RequestReannounce(hash); }
                         catch { /* best effort */ }
                     });
 
@@ -548,7 +548,7 @@ namespace Controllarr.Core
             public void RefreshNetworkPolicy(Settings settings) => _inner.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
             public void Reannounce(string infoHash) =>
-                _inner.Reannounce(infoHash).GetAwaiter().GetResult();
+                _inner.RequestReannounce(infoHash);
         }
     }
 }

@@ -8,8 +8,9 @@ namespace Controllarr.Core.Networking;
 
 internal static class TunnelDns
 {
-    public static async Task<IPAddress[]> ResolveAsync(TorrentNetworkPolicy policy, IPAddress server, string host, CancellationToken token)
+    public static async Task<IPAddress[]> ResolveAsync(TorrentNetworkPolicy policy, IPAddress server, string host, CancellationToken token, int port = 53)
     {
+        policy.CheckDestination(server);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         ushort id = (ushort)RandomNumberGenerator.GetInt32(65536);
@@ -23,10 +24,32 @@ internal static class TunnelDns
         }
         packet.Write(new byte[] { 0, 0, 1, 0, 1 }); // A / IN; protected mode intentionally excludes IPv6.
         if (packet.Length > 271) throw new IOException("DNS name is too long.");
-        using var socket = policy.CreateSocket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await socket.ConnectAsync(new IPEndPoint(server, 53), timeout.Token);
-        using var stream = new NetworkStream(socket, ownsSocket: false);
         byte[] request = packet.ToArray();
+        // Many tunnel resolvers accept UDP only. TCP is still required for truncated
+        // answers; both transports must use policy-owned sockets, never system DNS.
+        using (var udpTimeout = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token))
+        {
+            udpTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+            using var udp = policy.CreateSocket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            try
+            {
+                await udp.ConnectAsync(new IPEndPoint(server, port), udpTimeout.Token);
+                await udp.SendAsync(request, SocketFlags.None, udpTimeout.Token);
+                var buffer = new byte[4096];
+                while (true)
+                {
+                    int count = await udp.ReceiveAsync(buffer, SocketFlags.None, udpTimeout.Token);
+                    if (count < 12 || BinaryPrimitives.ReadUInt16BigEndian(buffer) != id) continue;
+                    if ((buffer[2] & 2) != 0) break;
+                    return Parse(buffer[..count], id);
+                }
+            }
+            catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+            { timeout.Token.ThrowIfCancellationRequested(); }
+        }
+        using var socket = policy.CreateSocket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        await socket.ConnectAsync(new IPEndPoint(server, port), timeout.Token);
+        using var stream = new NetworkStream(socket, ownsSocket: false);
         await stream.WriteAsync(new byte[] { (byte)(request.Length >> 8), (byte)request.Length }, timeout.Token);
         await stream.WriteAsync(request, timeout.Token);
         var prefix = new byte[2];
@@ -38,7 +61,7 @@ internal static class TunnelDns
 
     internal static IPAddress[] Parse(byte[] response, ushort id)
     {
-        if (response.Length < 12 || BinaryPrimitives.ReadUInt16BigEndian(response) != id || (response[2] & 0xF8) != 0x80 || (response[3] & 15) != 0)
+        if (response.Length < 12 || BinaryPrimitives.ReadUInt16BigEndian(response) != id || (response[2] & 0xFA) != 0x80 || (response[3] & 15) != 0)
             throw new IOException("Invalid or unsuccessful VPN DNS response.");
         int questions = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(4));
         int answers = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(6));

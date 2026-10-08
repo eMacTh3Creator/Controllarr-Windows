@@ -143,12 +143,12 @@ public sealed partial class TorrentEngine
         {
             var pairs = _managersByHash.ToArray();
             var plan = QueuePlanner.Plan(pairs.Select(p => new QueueCandidate(p.Key, OptionsFor(p.Key).Position,
-                p.Value.Progress >= 100, _pausedHashes.ContainsKey(p.Key), p.Value.State == MonoTorrent.Client.TorrentState.Error,
+                SelectedDownloadComplete(p.Value), _pausedHashes.ContainsKey(p.Key), p.Value.State == MonoTorrent.Client.TorrentState.Error,
                 OptionsFor(p.Key).ForceStart)), _queueSettings);
             var connectionPlan = ConnectionPlanner.Plan(pairs.Where(p => plan.Active.Contains(p.Key)).Select(p =>
             {
                 var options = OptionsFor(p.Key);
-                return new ConnectionCandidate(p.Key, options.Position, p.Value.Progress >= 100, options.ForceStart,
+                return new ConnectionCandidate(p.Key, options.Position, SelectedDownloadComplete(p.Value), options.ForceStart,
                     options.MaximumConnections ?? _defaultTorrentConnections);
             }), _engine.Settings.MaximumConnections, _downloadReservePercent);
             var waitingReasons = new Dictionary<string, string>(plan.WaitingReasons, StringComparer.OrdinalIgnoreCase);
@@ -275,6 +275,8 @@ public sealed partial class TorrentEngine
         return !options.ForceStart && _seedConnectionCaps.TryGetValue(hash, out int cap) ? Math.Min(configured, cap) : configured;
     }
 
+    private static bool SelectedDownloadComplete(TorrentManager manager) => manager.HasMetadata && manager.PartialProgress >= 100;
+
     public async Task<bool> SetTorrentLimitsAsync(string hash, int downloadKBps, int uploadKBps, bool persist = true)
     {
         if (downloadKBps is < 0 or > 1000000 || uploadKBps is < 0 or > 1000000) throw new ArgumentOutOfRangeException(nameof(downloadKBps));
@@ -296,7 +298,7 @@ public sealed partial class TorrentEngine
         if (!Uri.TryCreate(s.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https" or "udp"))
             throw new ArgumentException("Trackers must be absolute http, https or udp URLs.");
         return uri.AbsoluteUri;
-    }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }).Distinct(StringComparer.Ordinal).ToArray();
 
     private static async Task ReplaceTrackersCoreAsync(TorrentManager manager, string[] urls)
     {
@@ -322,17 +324,22 @@ public sealed partial class TorrentEngine
     public async Task<string> ImportTorrentFileAsync(string path, string savePath, string? category = null, bool persist = true)
     {
         var torrent = await MonoTorrent.Torrent.LoadAsync(path);
-        var existing = FindManager(torrent.InfoHashes.V1OrV2.ToHex());
-        if (existing != null) return existing.InfoHashes.V1OrV2.ToHex();
-        var manager = await _engine.AddAsync(torrent, ResolveSavePath(savePath));
-        string hash = manager.InfoHashes.V1OrV2.ToHex();
-        RegisterManager(hash, manager);
-        _pausedHashes[hash] = 0;
-        if (!string.IsNullOrEmpty(category)) _categories[hash] = category;
-        _addedDates[hash] = DateTime.UtcNow;
-        OptionsFor(hash);
-        InvalidateStats();
-        if (persist) await SaveEngineStateAsync();
-        return hash;
+        await _queueGate.WaitAsync();
+        try
+        {
+            ThrowIfDisposed();
+            var existing = FindManager(torrent.InfoHashes.V1OrV2.ToHex());
+            if (existing != null) return existing.InfoHashes.V1OrV2.ToHex();
+            var manager = await _engine.AddAsync(torrent, ResolveSavePath(savePath));
+            string hash = manager.InfoHashes.V1OrV2.ToHex();
+            RegisterManager(hash, manager);
+            _pausedHashes[hash] = 0;
+            if (!string.IsNullOrEmpty(category)) _categories[hash] = category;
+            _addedDates[hash] = DateTime.UtcNow;
+            InvalidateStats();
+            if (persist) await SaveEngineStateAsync(checkpointResume: false);
+            return hash;
+        }
+        finally { _queueGate.Release(); }
     }
 }

@@ -186,9 +186,14 @@ namespace Controllarr.Core.Services
 
         private void Tick()
         {
+            var settings = _store.GetSettings();
+            if (!AutomaticCyclingAllowed(settings, _engine.NetworkPolicy.Allowed))
+            {
+                _stalledSince = null;
+                return;
+            }
             var session = _engine.GetSessionStats();
             var torrents = _engine.PollStats();
-            var settings = _store.GetSettings();
 
             // Only evaluate when there are active downloading (non-paused,
             // non-seeding, incomplete) torrents.
@@ -261,6 +266,9 @@ namespace Controllarr.Core.Services
                     $"Download rate: {session.DownloadRate} B/s"));
             }
         }
+
+        internal static bool AutomaticCyclingAllowed(Settings settings, bool networkAllowed) =>
+            networkAllowed && !settings.TorrentNetwork.ProxyEnabled && !settings.PreferredListenPort.HasValue;
 
         // ────────────────────────────────────────────────────────────
         // Port reselection

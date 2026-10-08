@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
 using Controllarr.Core.Engine;
+using Controllarr.Core.Networking;
 using Controllarr.Core.Persistence;
 using Controllarr.Core.Services;
 
@@ -212,7 +213,7 @@ namespace Controllarr.Core.Server
                     ["up_info_data"] = stats.TotalUploaded,
                     ["dl_rate_limit"] = 0,
                     ["up_rate_limit"] = 0,
-                    ["dht_nodes"] = 0,
+                    ["dht_nodes"] = stats.DhtNodes,
                     ["connection_status"] = "connected"
                 };
                 return Results.Json(info, JsonOpts);
@@ -409,12 +410,13 @@ namespace Controllarr.Core.Server
                 {
                     try
                     {
-                        string hash = await engine.AddMagnet(magnet, category, savePath);
+                        string hash = await engine.AddMagnet(magnet, category, savePath, persist: false);
                         if (!string.IsNullOrEmpty(category))
                         {
                             store.NoteCategoryForHash(hash, category);
                         }
                         added++;
+                        if (added % 25 == 0) await engine.SaveEngineStateAsync(checkpointResume: false);
                         logger.Info("API", $"Added magnet: {magnet[..Math.Min(60, magnet.Length)]}...");
                     }
                     catch (Exception ex)
@@ -433,12 +435,13 @@ namespace Controllarr.Core.Server
                         await File.WriteAllBytesAsync(tempPath, fileBytes);
                         try
                         {
-                            string hash = await engine.AddTorrentFile(tempPath, category, savePath);
+                            string hash = await engine.AddTorrentFile(tempPath, category, savePath, persist: false);
                             if (!string.IsNullOrEmpty(category))
                             {
                                 store.NoteCategoryForHash(hash, category);
                             }
                             added++;
+                            if (added % 25 == 0) await engine.SaveEngineStateAsync(checkpointResume: false);
                             logger.Info("API", $"Added torrent file ({fileBytes.Length} bytes)");
                         }
                         finally
@@ -452,6 +455,7 @@ namespace Controllarr.Core.Server
                     }
                 }
 
+                if (added > 0) await engine.SaveEngineStateAsync(checkpointResume: false);
                 return added > 0 ? Results.Ok() : Results.BadRequest("No torrents added");
             });
 
@@ -730,7 +734,8 @@ namespace Controllarr.Core.Server
                     ["upload_rate"] = stats.UploadRate,
                     ["total_downloaded"] = stats.TotalDownloaded,
                     ["total_uploaded"] = stats.TotalUploaded,
-                    ["dht_nodes"] = 0,
+                    ["dht_nodes"] = stats.DhtNodes,
+                    ["dht_state"] = stats.DhtState,
                     ["listen_port"] = stats.ListenPort,
                     ["torrent_count"] = all.Length,
                     ["connected_peers"] = stats.NumPeersConnected,
@@ -848,7 +853,11 @@ namespace Controllarr.Core.Server
                 vpn_required = engine.NetworkPolicy.RequiresVpn, proxy_enabled = engine.NetworkPolicy.UsesProxy,
                 bound_address = engine.NetworkPolicy.Adapter?.Address.ToString(),
                 interface_name = engine.NetworkPolicy.Adapter?.Name,
-                restricted_discovery = engine.NetworkPolicy.RestrictedDiscovery
+                restricted_discovery = engine.NetworkPolicy.RestrictedDiscovery,
+                dht_allowed = engine.NetworkPolicy.DhtAllowed,
+                dht_state = engine.GetSessionStats().DhtState,
+                dht_nodes = engine.GetSessionStats().DhtNodes,
+                adapters = TorrentNetworkPolicy.AvailableAdapters()
             }, JsonOpts));
             app.MapGet("/api/controllarr/torrents/{hash}/options", (string hash) =>
                 engine.GetStats(hash) == null ? Results.NotFound() : Results.Json(engine.GetOptions(hash), JsonOpts));
@@ -1283,7 +1292,7 @@ namespace Controllarr.Core.Server
             public void RefreshNetworkPolicy(Settings settings) => _inner.ApplyAdvancedSettingsAsync(settings).GetAwaiter().GetResult();
 
             public void Reannounce(string infoHash) =>
-                _inner.Reannounce(infoHash).GetAwaiter().GetResult();
+                _inner.RequestReannounce(infoHash);
         }
     }
 }

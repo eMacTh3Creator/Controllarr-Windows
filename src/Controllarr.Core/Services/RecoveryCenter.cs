@@ -295,7 +295,7 @@ namespace Controllarr.Core.Services
                     case RecoveryAction.Reannounce:
                         engine.Reannounce(infoHash);
                         record.Success = true;
-                        record.Message = "Reannounce sent to trackers";
+                        record.Message = "Peer-discovery refresh requested (subject to active state and tracker intervals)";
                         break;
 
                     case RecoveryAction.Pause:

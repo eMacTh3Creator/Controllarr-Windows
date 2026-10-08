@@ -12,14 +12,15 @@ This folder holds the higher-level product and planning docs that sit alongside 
 - [NETWORKING.md](NETWORKING.md) - enforced adapter binding, LAN separation, SOCKS5/DPAPI, DNS, blocklists and advanced-client limitations
 - [OPERATIONS.md](OPERATIONS.md) — headless/always-on usage, backup/export/restore, recovery rules, post-processing retries, disk-space operations, VPN diagnostics, and the on-disk log
 - [PERFORMANCE.md](PERFORMANCE.md) — large-library scaling notes, the 2s polling model, and tuning guidance for high torrent counts with MonoTorrent
+- [STALL_AUDIT.md](STALL_AUDIT.md) - shipped metadata/tracker/DNS/DHT stall repairs, evidence and remaining optimization work
 - [V1_5_ROADMAP.md](V1_5_ROADMAP.md) — historical product-direction roadmap for a more ambitious release, adapted from the macOS roadmap
 
 ## Releases
 
 - [GitHub Releases](https://github.com/eMacTh3Creator/Controllarr-Windows/releases) — x64/ARM64 installers, portable ZIPs, checksums and per-version notes
-- [Release Notes](../RELEASE_NOTES_v2.2.2.md) - queue repair, download connection headroom and transfer diagnosis
+- [Release Notes](../RELEASE_NOTES_v2.2.3.md) - VPN-bound DHT, expanded tunnel detection and discovery/intake repairs
 
-The current Windows release is **v2.2.2**, adding live queue ranks, download-first admission, peer-budget headroom and waiting diagnosis to the native desktop, installers, pause-first removal, RSS/watch folders and VPN controls. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
+The current Windows release is **v2.2.3**, adding tunnel-bound DHT/DNS, PIA/NordVPN and generic tunnel recognition, tracker failover, metadata recovery and more efficient intake. Both CPU builds retain native desktop controls, profile-preserving installers, live queue/peer-budget diagnosis and pause-first removal. ARM64 is experimental. Windows uses MonoTorrent and is not behaviorally identical to the macOS engine. Built-in automatic installation is still planned.
 
 ## What Lives Where
 

@@ -1,7 +1,7 @@
 # Operations Guide
 
 This doc covers the operator-focused foundations available in Controllarr for
-Windows. The current release is v2.2.2, including queue repair, download peer
+Windows. The current release is v2.2.3, including VPN-bound DHT, discovery repairs, queue repair, download peer
 headroom, transfer diagnosis, installers, profile import,
 pause-first bulk removal and enforced adapter binding. The operator workflows below reflect
 the Windows engine, paths, and tooling.
@@ -41,7 +41,7 @@ detail.
 
 ## Running Controllarr
 
-v2.2.2 provides per-user x64/ARM64 installers, preserving existing AppData
+v2.2.3 provides per-user x64/ARM64 installers, preserving existing AppData
 settings by default, plus optional profile import with backup. Portable ZIPs
 remain available; extract the whole folder and keep its DLLs together. No .NET
 install is required. ARM64 remains experimental; see [INSTALL.md](INSTALL.md).
@@ -158,12 +158,14 @@ Some VPN providers, including PIA, assign a specific forwarded incoming port.
 Set **Settings -> General -> Preferred forwarded port** to that value, for
 example `53127`.
 
-Controllarr uses this port before the last-known-good port on startup, applies
-it immediately when saved, and tries it before random fallback ports during port
-cycling. If the preferred port itself goes stale, Controllarr moves to a
-fallback from the configured range (`listen_port_range_start` to
-`listen_port_range_end`, defaults `49152`-`65000`); if a fallback later goes
-stale, it retries the preferred port.
+Controllarr uses this port before the last-known-good port on startup and applies
+it when saved. v2.2.3 keeps it fixed during automatic
+stall handling: zero throughput does not prove that the port is closed, and a
+random fallback is not automatically forwarded. Change it when your provider
+assigns a new port. Manual cycling is explicit; without a preferred port,
+automatic cycling uses the configured range (`listen_port_range_start` to
+`listen_port_range_end`, defaults `49152`-`65000`). Published v2.2.2 retains the
+older random-cycling behavior.
 
 Leave the field blank if your VPN does not provide a forwarded port or if the
 port changes too often to manage manually.
@@ -176,6 +178,8 @@ Controllarr detects VPN adapters by scanning Windows network interfaces with
 - `TAP-Windows` / `TAP-Win32` (OpenVPN)
 - `WireGuard`
 - `Wintun` (the WireGuard kernel driver)
+- provider names/descriptions including PIA, NordVPN/NordLynx, Proton, Mullvad,
+  Surfshark, ExpressVPN, CyberGhost, Windscribe and IVPN
 - any adapter whose name starts with the configured `vpn_interface_prefix`
   (default `TAP`)
 
@@ -188,9 +192,30 @@ enforcement. The WebUI listener remains independent.
 
 If your VPN uses an unfamiliar adapter name, select it from the native adapter
 list rather than guessing a prefix. Topology changes block torrents until
-restart. VPN mode uses bound TCP DNS and rejects IPv6 fallback. DHT/LSD/router
-mapping are disabled in protected modes. See [NETWORKING.md](NETWORKING.md)
+restart. v2.2.3 uses bound UDP-first DNS with TCP fallback, including numeric
+public resolvers through the tunnel when adapter DNS is unavailable. VPN mode
+rejects IPv6 fallback. DHT works through the forced adapter; LSD/router mapping
+stay disabled in protected modes. PIA/NordLynx and other popular provider names
+are recognized; multiple active tunnels require explicit selection. See [NETWORKING.md](NETWORKING.md)
 for SOCKS5, encryption, blocklists, limits and production verification steps.
+
+## Metadata or Zero-Peer Stalls
+
+Check the selected torrent's waiting reason, Trackers messages and the global
+Peers used/limit counter. Zero connected peers is not proof of zero swarm seeds.
+VPN binding and blocklists support DHT in v2.2.3; enable DHT and check its
+state/node count in WebUI Settings or `/api/controllarr/network`. PEX cannot
+bootstrap the first peer. SOCKS5 still disables DHT and UDP
+trackers, so it needs HTTP/HTTPS sources. Confirm the chosen tunnel has working
+DNS and that the preferred incoming port still matches the provider assignment.
+
+v2.2.3 repairs tracker failover/interval handling and
+metadata health monitoring. With auto-reannounce on, inactive metadata/no-peer
+jobs request bounded rediscovery after one minute with increasing backoff,
+respecting tracker minimums. Health escalation still uses the configured stall
+timeout. Re-adding a non-private torrent with source-supplied trackers merges
+them under MergeTrackers, without resuming paused work. Do not paste private
+tracker passkeys into public logs/issues. See [STALL_AUDIT.md](STALL_AUDIT.md).
 
 ## Automatic Updates (GitHub Releases)
 
