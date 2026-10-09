@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Controllarr v2.3.0: native Windows torrent desktop with clean per-torrent folders, safe completed moves, VPN-bound DHT and a Sonarr/Radarr API. Download x64 or ARM64 installers.">
+  <meta name="description" content="A Windows torrent client with Sonarr and Radarr support, VPN adapter settings, per-torrent folders, and browser access. Download x64 or ARM64 installers.">
   <meta name="theme-color" content="#071117">
   <meta property="og:title" content="Controllarr for Windows">
   <meta property="og:description" content="Windows-native torrent control for your *arr stack.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="assets/icon-256.png">
-  <title>Controllarr for Windows - native torrent control for your *arr stack</title>
+  <title>Controllarr for Windows - torrent client for Sonarr and Radarr</title>
   <link rel="icon" href="assets/icon-256.png">
   <style>
     :root {
@@ -236,8 +236,8 @@
     <section class="hero">
       <div class="shell hero-grid">
         <div>
-          <h1>Windows-native torrent control for your <span class="arr">*arr</span> stack.</h1>
-          <p class="lead">A standalone BitTorrent desktop with a qBittorrent-compatible API for Sonarr and Radarr. Control your whole library locally, or let your media server manage it over the LAN. Full installers keep your settings &mdash; no .NET or WebView2 install required.</p>
+          <h1>A Windows torrent client for Sonarr and Radarr.</h1>
+          <p class="lead">Download and manage torrents on your PC, or connect Sonarr and Radarr to handle downloads for you. You can also manage the app from a browser on your network. The installer includes everything you need and keeps your existing settings.</p>
           <div class="actions">
             <a class="button primary" data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64-Setup.exe">Download x64 installer</a>
             <a class="button quiet" data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe">ARM64 installer</a>
@@ -301,16 +301,16 @@
     <section id="features">
       <div class="shell">
         <div class="section-title">
-          <h2>Built for control. Designed for scale.</h2>
-          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.3.0 adds clean torrent folders, collision-safe moves and scoped archive extraction, retaining VPN-bound DHT and discovery repairs. Profile-preserving x64 and ARM64 installers are available.</p>
+          <h2>What Controllarr does</h2>
+          <p>Manage downloads, organize files by category, and connect your media apps. Installers are available for Intel/AMD PCs and Windows on ARM.</p>
         </div>
 
         <div class="feature-rail">
           <article class="feature">
             <div class="icon-orb">VPN</div>
             <div>
-              <h3>VPN-aware routing</h3>
-              <p>Pin peers, trackers, DHT and bootstrap DNS to your selected VPN adapter. PIA, NordLynx and popular tunnel names are detected automatically; ambiguous matches require a selection. Missing adapters block traffic without ordinary-interface fallback. LAN management stays separate. Keep your VPN provider's kill switch enabled.</p>
+              <h3>Use your VPN for torrent traffic</h3>
+              <p>Choose the VPN adapter Controllarr should use for torrent connections and tracker lookups. If that adapter disappears, torrent traffic stops instead of switching to your normal connection. You can still manage the app over your LAN. Keep your VPN provider's kill switch enabled.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>Wintun</strong><span>adapter watch</span></div>
@@ -322,8 +322,8 @@
           <article class="feature">
             <div class="icon-orb">qb</div>
             <div>
-              <h3>qBittorrent-compatible API</h3>
-              <p>Point Sonarr and Radarr at Controllarr using the qBittorrent download-client type; Seerr/Overseerr works through those apps. No custom downloader plugin required. Change the default <code>admin / adminadmin</code> login before LAN use.</p>
+              <h3>Connect Sonarr and Radarr</h3>
+              <p>Add Controllarr as a qBittorrent download client in Sonarr or Radarr. Seerr and Overseerr send requests through those apps. Change the default <code>admin / adminadmin</code> login before allowing LAN access.</p>
             </div>
             <div class="code-card">
 <pre>POST /api/v2/torrents/add
@@ -337,8 +337,8 @@ GET /api/v2/torrents/info</pre>
           <article class="feature">
             <div class="icon-orb">DIR</div>
             <div>
-              <h3>Clean torrent folders</h3>
-              <p>A category checkbox puts each new torrent in its own name/hash folder, including single-file downloads. Completed moves keep the folder intact and never overwrite another payload. Trailing backslashes are not needed; existing files stay where they are. Archive extraction touches only that torrent's selected files. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/STORAGE.md">Storage guide</a></p>
+              <h3>Keep downloads in separate folders</h3>
+              <p>Turn on per-torrent folders in a category to give each new download its own folder. Completed downloads keep that folder when moved, and existing files are not overwritten. You can also extract archives from the files selected for that torrent. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/STORAGE.md">Storage guide</a></p>
             </div>
             <div class="code-card">
 <pre>E:\temp\tv-sonarr\
@@ -350,8 +350,8 @@ GET /api/v2/torrents/info</pre>
           <article class="feature">
             <div class="icon-orb">1K</div>
             <div>
-              <h3>Large-library stability</h3>
-              <p>Incremental row updates, shared engine snapshots, atomic resume checkpoints and bounded transport work reduce avoidable overhead. Virtualized WPF tables keep large torrent libraries responsive.</p>
+              <h3>Manage larger libraries</h3>
+              <p>The transfer list updates changed rows and loads visible rows as you scroll. Background work is limited so saving progress and checking transfers do not all run at once.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>1,000+</strong><span>torrent guidance</span></div>
@@ -363,8 +363,8 @@ GET /api/v2/torrents/info</pre>
           <article class="feature">
             <div class="icon-orb">UI</div>
             <div>
-              <h3>Native WPF + bundled Web UI</h3>
-              <p>Manage categories and multi-selected transfers with native menus, a Files/Trackers/Peers inspector and safe removal dialogs. Use tray/taskbar controls locally, or the bundled WebUI and API over your configured LAN listener.</p>
+              <h3>Manage downloads locally or in a browser</h3>
+              <p>Select several torrents to pause, resume, move, or remove them together. Check files, trackers, and peers in the desktop app, use the tray controls, or open the Web UI from another computer on your network.</p>
             </div>
             <div class="code-card">
 <pre>Local:  http://127.0.0.1:8791
@@ -380,8 +380,8 @@ Login:  admin / adminadmin</pre>
       <div class="shell">
         <div class="release-band">
           <div>
-            <h2>A standalone desktop, not a browser portal</h2>
-            <p class="lead">v2.3.0 corrects Sonarr import paths and adds confirmed legacy-folder repair, authenticated paged remote APIs, bounded events and optional LAN discovery. Native desktop controls, VPN-bound DHT, live queues and profile-preserving installers remain. Existing files are not silently reorganized. See the release notes for architecture details and update options.</p>
+            <h2>What's new in version 2.3.0</h2>
+            <p class="lead">This release fixes the download paths reported to Sonarr and adds a tool to repair older folder layouts after you confirm the changes. It also adds support for the iOS remote app and optional discovery on your network. See the release notes for details.</p>
             <div class="actions">
               <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.3.0">Release notes</a>
               <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Documentation</a>
@@ -389,10 +389,10 @@ Login:  admin / adminadmin</pre>
             </div>
           </div>
           <ul class="release-list">
-            <li><span class="amber">01</span><span><b>Full installers for both CPUs.</b> x64 for Intel/AMD; ARM64 for Windows on ARM. Keep existing settings by default or import a previous profile with backup. Portable ZIPs are available too.</span></li>
-            <li><span class="amber">02</span><span><b>Bundled Web UI.</b> A no-build dark Windows 11-style SPA served at <code>http://127.0.0.1:8791</code> with Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs.</span></li>
-            <li><span class="amber">03</span><span><b>Safe bulk workflows.</b> Filter by category, select many torrents, and use right-click or Delete to keep files or permanently remove them with another confirmation. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/DESKTOP.md">desktop guide</a>.</span></li>
-            <li><span class="amber">04</span><span><b>Native mobile management.</b> Native iOS preview with instances, torrent/category/settings controls and notification options. An Apple-signed device build is active in internal TestFlight testing; See the mobile guide for access and notification options. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/MOBILE.md">Mobile setup.</a></span></li>
+            <li><span class="amber">01</span><span><b>Choose your installer.</b> x64 for Intel/AMD; ARM64 for Windows on ARM. Keep existing settings by default or import a previous profile with backup. Portable ZIPs are available too.</span></li>
+            <li><span class="amber">02</span><span><b>Bundled Web UI.</b> Manage transfers, categories, settings, and logs in your browser at <code>http://127.0.0.1:8791</code>.</span></li>
+            <li><span class="amber">03</span><span><b>Work with several torrents at once.</b> Filter by category, select many torrents, and use right-click or Delete to keep files or permanently remove them with another confirmation. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/DESKTOP.md">desktop guide</a>.</span></li>
+            <li><span class="amber">04</span><span><b>iOS remote app.</b> Manage multiple servers, torrents, categories, and settings from the iOS app. It is currently available through internal TestFlight testing. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/MOBILE.md">Mobile setup.</a></span></li>
           </ul>
         </div>
       </div>
@@ -401,7 +401,7 @@ Login:  admin / adminadmin</pre>
     <section id="install">
       <div class="shell">
         <div class="section-title">
-          <h2>Get started in minutes.</h2>
+          <h2>Install and connect</h2>
           <p>Download your CPU's installer, exit the previous app from its tray, and choose Keep existing settings. No .NET download. Back up your profile before upgrading. Installers and app binaries are unsigned.</p>
         </div>
         <div class="steps">
@@ -433,8 +433,8 @@ Login:  admin / adminadmin</pre>
 
         <div class="connect-band">
           <div>
-            <h3>Connecting Sonarr / Radarr</h3>
-            <p>Add a download client of type <b>qBittorrent</b> in Sonarr or Radarr; Seerr/Overseerr sends requests through them. WebUI/SOCKS5 passwords use Windows DPAPI without per-access permission prompts. For remote LAN clients, configure the WebUI bind host, restart, and use the PC's LAN IP instead of <code>127.0.0.1</code>. Change default credentials and scope firewall access to your LAN.</p>
+            <h3>Sonarr and Radarr setup</h3>
+            <p>Add a download client of type <b>qBittorrent</b> in Sonarr or Radarr; Seerr/Overseerr sends requests through them. For remote LAN clients, configure the WebUI bind host, restart, and use the PC's LAN IP instead of <code>127.0.0.1</code>. Change default credentials and scope firewall access to your LAN.</p>
           </div>
           <dl>
             <dt>Client type</dt><dd>qBittorrent</dd>
@@ -451,7 +451,7 @@ Login:  admin / adminadmin</pre>
 
   <footer>
     <div class="shell footer-inner">
-      <div>Controllarr for Windows. Take control. Stay private. Keep seeding.</div>
+      <div>Controllarr for Windows.</div>
       <div class="footer-links">
         <a href="https://github.com/eMacTh3Creator/Controllarr-Windows">GitHub</a>
         <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">Releases</a>
