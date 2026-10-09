@@ -4,13 +4,13 @@
 
 <h1 align="center">Controllarr for Windows</h1>
 
-<p align="center">A native Windows BitTorrent client built for Sonarr / Radarr / Overseerr / Plex workflows.</p>
+<p align="center">A Windows torrent client that connects to Sonarr and Radarr.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%2F11-blue" alt="Windows 10/11" />
   <img src="https://img.shields.io/badge/.NET_8-net8.0--windows-purple" alt=".NET 8" />
   <img src="https://img.shields.io/badge/x64-supported-green" alt="x64" />
-  <img src="https://img.shields.io/badge/ARM64-experimental-orange" alt="ARM64 experimental" />
+  <img src="https://img.shields.io/badge/ARM64-available-blue" alt="ARM64 installer available" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
@@ -18,20 +18,20 @@
 
 Controllarr for Windows is the Windows counterpart to [macOS Controllarr](https://github.com/eMacTh3Creator/Controllarr). It uses [MonoTorrent](https://github.com/alanmcgovern/monotorrent) inside a native WPF desktop app. Sonarr and Radarr connect using their qBittorrent download-client configuration; remote machines also need a reachable LAN bind address and appropriate firewall/VPN settings.
 
-**Current release:** [v2.3.0](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.3.0) fixes Sonarr's base-download-directory import warning, honors per-download `contentLayout=Subfolder`, and adds confirmed **Repair import folder layout** for selected legacy downloads. Authenticated paged remote APIs, bounded events and optional LAN discovery support the native [iOS Remote preview](https://github.com/eMacTh3Creator/Controllarr/tree/main/iOS). **A trailing backslash is not required.** Existing profiles/payload paths are retained, with no silent reorganization. x64 and experimental ARM64 installers retain VPN-bound DHT, live queues, peer-budget diagnostics and pause-first removal. The desktop is native WPF, not an embedded WebUI. See [mobile setup](docs/MOBILE.md), [storage](docs/STORAGE.md), [networking](docs/NETWORKING.md) and [validation](docs/NATIVE_DESKTOP_VALIDATION.md). An Apple-signed iOS device build is active for internal TestFlight testing; public beta access, reliable background push and full Mac advanced-client parity remain unfinished. Simulator downloads are not phone installers.
+**Current release:** [v2.3.0](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.3.0) fixes the download paths reported to Sonarr and adds **Repair import folder layout** for older downloads. The app asks for confirmation before changing folders.
 
-**Known limits:** both CPU builds use self-contained app folders. ARM64 remains experimental: earlier single-file packages reproduced an intermittent API AccessViolation whose root cause is not established. Folder builds passed the listed pre-checks. Real-provider VPN leak testing, physical x64 hardware validation and long-duration load testing remain incomplete. Back up your profile before updating; see the validation report for exact scope.
+Installers are available for x64 and ARM64. Manage transfers in the desktop app, use the browser interface over your LAN, or connect the [iOS remote app](https://github.com/eMacTh3Creator/Controllarr/tree/main/iOS), currently in internal TestFlight testing.
 
-**Reliability audit:** the [torrent stall audit](docs/STALL_AUDIT.md) documents shipped tracker failover/refresh, VPN DNS, metadata health/recovery, selected-file queue completion and intake repairs. Remaining work includes synchronous post-processing/*arr I/O, metadata-slot rotation, download fairness and real-provider VPN validation.
+See [installation](docs/INSTALL.md), [storage](docs/STORAGE.md), [networking](docs/NETWORKING.md), and [mobile setup](docs/MOBILE.md). Back up your profile before updating. Build status and testing details are in the release notes.
 
 ## Download
 
 | Platform | Download | Requirements |
 |----------|----------|--------------|
 | **Windows x64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64-Setup.exe) | Intel/AMD Windows 10/11, including x64 Plexboxes |
-| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe) | Windows 11 on ARM; experimental |
+| **Windows ARM64** | [Download Setup.exe directly](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe) | Windows 11 on ARM |
 
-Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/SHA256SUMS.txt) are also available. Binaries remain unsigned. These are Windows builds, not macOS binaries. See [the installation guide](docs/INSTALL.md). Built-in automatic installation is still planned.
+Exit the old app from its tray, then run the matching installer. **Keep existing settings** reuses the AppData profile; optional import restores a previous profile folder with a metadata backup. Downloaded files are not moved or deleted by installation. No separate .NET, Edge or WebView2 is required. Portable ZIPs and [SHA256SUMS.txt](https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/SHA256SUMS.txt) are also available. The Windows binaries are unsigned. See [the installation guide](docs/INSTALL.md). Use **Check for Updates** to open the latest release page.
 
 On first launch, the Web UI is available at <http://127.0.0.1:8791> — default login is `admin` / `adminadmin`. Point Sonarr / Radarr at the same URL using the qBittorrent download client type.
 
@@ -39,7 +39,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 
 ## Features
 
-- **Automatic listen-port reselection** when the forwarded port goes offline (the #1 reason this project exists)
+- **Automatic listen-port reselection** when the forwarded port goes offline 
 - **qBittorrent Web API v2** compatibility — Sonarr / Radarr connect directly; Seerr/Overseerr works through those apps
 - **Bundled browser Web UI** — a no-build static SPA served by the embedded server at <http://127.0.0.1:8791> with a dark Windows 11-style theme, login, and tabs for Home / Torrents / Categories / Settings / Health / Recovery / Post-Processor / Seeding / Log (with per-torrent Files / Trackers / Peers detail)
 - **Standalone native desktop** — no Edge/WebView2 dependency or browser login required for local control; the remote WebUI/API remains available separately
@@ -50,7 +50,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Native Home dashboard** — session metric cards, status pills, quick actions, and a most-active-transfers list; Transfers is now the default workspace
 - **Graphite and teal desktop theme** — compact Windows controls, keyboard navigation and resizable transfer/details panes
 - **Per-torrent detail** — persistent file priorities, editable public-torrent trackers and refreshable peer snapshots
-- **Aware active queue** - contiguous live positions after removal/restart, download-first admission under total caps, separate download/seed limits and explicit force-start; queued state and waiting reasons are reflected in the API
+- **Download and seeding queues** - contiguous live positions after removal/restart, download-first admission under total caps, separate download/seed limits and explicit force-start; queued state and waiting reasons are reflected in the API
 - **Download connection headroom** - configurable reserve (25% by default, 0 disables it); ordinary seeds share the remaining peer budget while downloads need connections, without raising the global limit
 - **Transfer diagnosis** - global used/limit counter and selected-torrent reasons for queue caps, VPN/disk guards, metadata waits, peer-budget exhaustion and connected-but-idle peers; unavailable tracker scrape counts display Unknown, not zero seeders
 - **Speed controls** — global and multi-selected per-torrent limits, with scheduled limits falling back to the global values
@@ -67,7 +67,7 @@ On first launch, the Web UI is available at <http://127.0.0.1:8791> — default 
 - **Persistent crash-surviving log** — the runtime log is mirrored to `%AppData%\Controllarr\logs\controllarr.log`, fsync'd on warnings/errors and every few lines (~5 MB rotation keeping one `.1` backup) so it survives an app crash or reboot; a **Reveal Log File** action opens it in Explorer
 - **GitHub-release update check** — a "Check for Updates" action plus a settings toggle query the GitHub Releases API and open the latest release page (replaces the macOS Sparkle updater)
 - **Category-based save paths** and post-complete move rules for Plex library handoff
-- **Clean torrent folders** - per-category checkbox plus an uncategorized default, name/hash folders for single-file and multi-file intake, stable magnet paths, non-overwriting moves and restart persistence; existing files are not silently reorganized
+- **Separate torrent folders** - per-category checkbox plus an uncategorized default, name/hash folders for single-file and multi-file intake, stable magnet paths, non-overwriting moves and restart persistence; existing files are not silently reorganized
 - **Archive extractor** (.rar / .zip / .7z) via SharpCompress
 - **Dangerous-file filter** per category with blocked extension lists
 - **Seeding policy** — per-category or global max ratio / max seed time with hit-and-run protection
