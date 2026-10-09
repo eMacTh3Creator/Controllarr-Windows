@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Controllarr v2.3.0: native Windows torrent desktop with clean per-torrent folders, safe completed moves, VPN-bound DHT and a Sonarr/Radarr API. Download x64 or experimental ARM64 installers.">
+  <meta name="description" content="Controllarr v2.3.0: native Windows torrent desktop with clean per-torrent folders, safe completed moves, VPN-bound DHT and a Sonarr/Radarr API. Download x64 or ARM64 installers.">
   <meta name="theme-color" content="#071117">
   <meta property="og:title" content="Controllarr for Windows">
   <meta property="og:description" content="Windows-native torrent control for your *arr stack.">
@@ -240,7 +240,7 @@
           <p class="lead">A standalone BitTorrent desktop with a qBittorrent-compatible API for Sonarr and Radarr. Control your whole library locally, or let your media server manage it over the LAN. Full installers keep your settings &mdash; no .NET or WebView2 install required.</p>
           <div class="actions">
             <a class="button primary" data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64-Setup.exe">Download x64 installer</a>
-            <a class="button quiet" data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe">ARM64 installer &middot; experimental</a>
+            <a class="button quiet" data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe">ARM64 installer</a>
             <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/latest">All releases</a>
           </div>
           <div class="proof" aria-label="Project highlights">
@@ -302,7 +302,7 @@
       <div class="shell">
         <div class="section-title">
           <h2>Built for control. Designed for scale.</h2>
-          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.3.0 adds clean torrent folders, collision-safe moves and scoped archive extraction, retaining VPN-bound DHT and discovery repairs. Profile-preserving x64 and experimental ARM64 installers are available.</p>
+          <p>Native WPF controls, a separate remote Web UI, and *arr compatibility. v2.3.0 adds clean torrent folders, collision-safe moves and scoped archive extraction, retaining VPN-bound DHT and discovery repairs. Profile-preserving x64 and ARM64 installers are available.</p>
         </div>
 
         <div class="feature-rail">
@@ -310,7 +310,7 @@
             <div class="icon-orb">VPN</div>
             <div>
               <h3>VPN-aware routing</h3>
-              <p>Pin peers, trackers, DHT and bootstrap DNS to your selected VPN adapter. PIA, NordLynx and popular tunnel names are detected automatically; ambiguous matches require a selection. Missing adapters block traffic without ordinary-interface fallback. LAN management stays separate. Keep your provider's kill switch on; real-provider leak validation remains outstanding.</p>
+              <p>Pin peers, trackers, DHT and bootstrap DNS to your selected VPN adapter. PIA, NordLynx and popular tunnel names are detected automatically; ambiguous matches require a selection. Missing adapters block traffic without ordinary-interface fallback. LAN management stays separate. Keep your VPN provider's kill switch enabled.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>Wintun</strong><span>adapter watch</span></div>
@@ -351,7 +351,7 @@ GET /api/v2/torrents/info</pre>
             <div class="icon-orb">1K</div>
             <div>
               <h3>Large-library stability</h3>
-              <p>Incremental row updates, shared engine snapshots, atomic resume checkpoints and bounded transport work reduce avoidable overhead. The WPF harness virtualizes 10,000 rows; mixed-library load and long-duration stability still need real-world validation.</p>
+              <p>Incremental row updates, shared engine snapshots, atomic resume checkpoints and bounded transport work reduce avoidable overhead. Virtualized WPF tables keep large torrent libraries responsive.</p>
             </div>
             <div class="signal-grid">
               <div class="signal-card"><strong>1,000+</strong><span>torrent guidance</span></div>
@@ -381,7 +381,7 @@ Login:  admin / adminadmin</pre>
         <div class="release-band">
           <div>
             <h2>A standalone desktop, not a browser portal</h2>
-            <p class="lead">v2.3.0 corrects Sonarr import paths and adds confirmed legacy-folder repair, authenticated paged remote APIs, bounded events and optional LAN discovery. Native desktop controls, VPN-bound DHT, live queues and profile-preserving installers remain. Existing files are not silently reorganized. ARM64 is experimental; prechecks are not a long-duration stability or VPN certification. Built-in automatic installation is still planned.</p>
+            <p class="lead">v2.3.0 corrects Sonarr import paths and adds confirmed legacy-folder repair, authenticated paged remote APIs, bounded events and optional LAN discovery. Native desktop controls, VPN-bound DHT, live queues and profile-preserving installers remain. Existing files are not silently reorganized. See the release notes for architecture details and update options.</p>
             <div class="actions">
               <a class="button primary" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/tag/v2.3.0">Release notes</a>
               <a class="button quiet" href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/README.md">Documentation</a>
@@ -389,10 +389,10 @@ Login:  admin / adminadmin</pre>
             </div>
           </div>
           <ul class="release-list">
-            <li><span class="amber">01</span><span><b>Full installers for both CPUs.</b> x64 for Intel/AMD; experimental ARM64 for Windows on ARM. Keep existing settings by default or import a previous profile with backup. Portable ZIPs are available too.</span></li>
+            <li><span class="amber">01</span><span><b>Full installers for both CPUs.</b> x64 for Intel/AMD; ARM64 for Windows on ARM. Keep existing settings by default or import a previous profile with backup. Portable ZIPs are available too.</span></li>
             <li><span class="amber">02</span><span><b>Bundled Web UI.</b> A no-build dark Windows 11-style SPA served at <code>http://127.0.0.1:8791</code> with Home, Torrents, Categories, Settings, Health, Recovery, Post-Processor, Seeding, and Log tabs.</span></li>
             <li><span class="amber">03</span><span><b>Safe bulk workflows.</b> Filter by category, select many torrents, and use right-click or Delete to keep files or permanently remove them with another confirmation. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/DESKTOP.md">desktop guide</a>.</span></li>
-            <li><span class="amber">04</span><span><b>Native mobile management.</b> Native iOS preview with instances, torrent/category/settings controls and notification options. An Apple-signed device build is active in internal TestFlight testing; public beta access and reliable background push remain. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/MOBILE.md">Setup and limits.</a></span></li>
+            <li><span class="amber">04</span><span><b>Native mobile management.</b> Native iOS preview with instances, torrent/category/settings controls and notification options. An Apple-signed device build is active in internal TestFlight testing; See the mobile guide for access and notification options. <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/MOBILE.md">Mobile setup.</a></span></li>
           </ul>
         </div>
       </div>
@@ -402,13 +402,13 @@ Login:  admin / adminadmin</pre>
       <div class="shell">
         <div class="section-title">
           <h2>Get started in minutes.</h2>
-          <p>Download your CPU's installer, exit the previous app from its tray, and choose Keep existing settings. No .NET download. Back up your profile before upgrading. Installers and app binaries remain unsigned.</p>
+          <p>Download your CPU's installer, exit the previous app from its tray, and choose Keep existing settings. No .NET download. Back up your profile before upgrading. Installers and app binaries are unsigned.</p>
         </div>
         <div class="steps">
           <article class="step">
             <div class="step-num">1</div>
             <h3>Download</h3>
-            <p>Get the <a data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64-Setup.exe">Intel/AMD x64 installer</a> or <a data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe">experimental ARM64 installer</a>. Verify <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/SHA256SUMS.txt">SHA256SUMS.txt</a>. Prefer portable? Choose the <a data-format="zip" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64.zip">x64 ZIP</a> or <a data-format="zip" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64.zip">ARM64 ZIP</a>.</p>
+            <p>Get the <a data-format="setup" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64-Setup.exe">Intel/AMD x64 installer</a> or <a data-format="setup" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64-Setup.exe">ARM64 installer</a>. Verify <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/SHA256SUMS.txt">SHA256SUMS.txt</a>. Prefer portable? Choose the <a data-format="zip" data-dl="win-x64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-x64.zip">x64 ZIP</a> or <a data-format="zip" data-dl="win-arm64" href="https://github.com/eMacTh3Creator/Controllarr-Windows/releases/download/v2.3.0/Controllarr-2.3.0-win-arm64.zip">ARM64 ZIP</a>.</p>
           </article>
           <article class="step">
             <div class="step-num">2</div>
@@ -428,7 +428,7 @@ Login:  admin / adminadmin</pre>
         </div>
 
         <div class="install-note">
-          <b>Unsigned, not a verified publisher.</b> Windows may warn on first launch. Only for a trusted project download whose checksum you verified, use SmartScreen's <code>More info</code> then <code>Run anyway</code>, or the file's <code>Properties &rarr; Unblock</code> option. Never disable Defender or the firewall globally. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/INSTALL.md">install guide</a> and <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/NATIVE_DESKTOP_VALIDATION.md">validation limits</a> before production migration.
+          <b>First-launch security prompt.</b> Windows may warn on first launch. Only for a trusted project download whose checksum you verified, use SmartScreen's <code>More info</code> then <code>Run anyway</code>, or the file's <code>Properties &rarr; Unblock</code> option. Never disable Defender or the firewall globally. See the <a href="https://github.com/eMacTh3Creator/Controllarr-Windows/blob/master/docs/INSTALL.md">install guide</a> before migrating your profile.
         </div>
 
         <div class="connect-band">
